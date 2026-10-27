@@ -276,6 +276,7 @@ func run(args []string) error {
 	rankingF := fs.String("ranking", "trust", "")
 	trustedProxyF := fs.String("trusted-proxy", "", "")
 	plainF := fs.Bool("plain", false, "")
+	alertsF := fs.Bool("alerts", false, "") // done --alerts: clear every current alert
 	replyF := fs.String("reply", "", "")
 	actionF := fs.String("action", "", "")       // owner approve: bind the approval to one typed UI action (its hash)
 	ownerDirF := fs.String("owner-dir", "", "")  // ui serve: the owner's folder, for the trusted approval sheet
@@ -1071,6 +1072,14 @@ func run(args []string) error {
 		c, err := client()
 		if err != nil {
 			return err
+		}
+		if cmd == "done" && *alertsF { // done --alerts: the alerts inbox shows, cleared
+			n := c.clearAlerts()
+			if err := c.save(); err != nil {
+				return err
+			}
+			out(map[string]any{"alerts_cleared": n})
+			return nil
 		}
 		id, err := arg(0, "ID")
 		if err != nil {

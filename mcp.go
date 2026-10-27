@@ -36,7 +36,7 @@ func schema(req []string, props map[string]string) map[string]any {
 	p := map[string]any{}
 	for k, d := range props {
 		t := "string"
-		if k == "all" {
+		if k == "all" || k == "alerts" {
 			t = "boolean"
 		}
 		p[k] = map[string]any{"type": t, "description": d}
@@ -53,7 +53,7 @@ var mcpTools = []tool{
 	{"tern_read", "Open one item; content is fenced and labelled.", schema([]string{"id"}, map[string]string{"id": "item id"})},
 	{"tern_send", "Write to a name (oscar, ada.oscar).", schema([]string{"to", "text"}, map[string]string{"to": "name", "text": "message", "subject": "subject", "intent": "request|question|inform|offer|result"})},
 	{"tern_reply", "Answer an item in its thread.", schema([]string{"id", "text"}, map[string]string{"id": "item id", "text": "answer"})},
-	{"tern_done", "Mark an item handled.", schema([]string{"id"}, map[string]string{"id": "item id"})},
+	{"tern_done", "Mark an item handled; with alerts: true (no id), clear every current alert inbox shows.", schema(nil, map[string]string{"id": "item id", "alerts": "clear all current alerts instead"})},
 	{"tern_ask_owner", "Ask your own human; the answer arrives as signed mail.", schema([]string{"question"}, map[string]string{"question": "a yes/no question naming the exact action"})},
 	{"tern_find", "Search cards and groups on the network. A card's contact says how to reach it (price, postage, what it accepts).", schema([]string{"q"}, map[string]string{"q": "words"})},
 	{"tern_request", "Ask a service for work (a quote): pays the work postage its card asks, so it reads it. It answers with an offer.", schema([]string{"to", "text"}, map[string]string{"to": "the service's name", "text": "what you need", "budget": "coins, at most (optional)"})},
@@ -145,6 +145,13 @@ func runTool(c *Client, name string, a map[string]any) (any, error) {
 		}
 		return c.send(SendOpts{To: it.From, ReplyTo: it.ID, Intent: "answer", Text: s("text")})
 	case "tern_done":
+		if al, _ := a["alerts"].(bool); al {
+			n := c.clearAlerts()
+			return map[string]any{"alerts_cleared": n}, c.save()
+		}
+		if s("id") == "" {
+			return nil, fmt.Errorf("tern_done takes an item id, or alerts: true")
+		}
 		it := c.findFetch(s("id"))
 		if it == nil {
 			return nil, fmt.Errorf("no item %s", s("id"))

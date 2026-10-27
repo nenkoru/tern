@@ -86,6 +86,7 @@ type SentRec struct {
 	Node    string   `json:"node,omitempty"`
 	Lost    bool     `json:"lost,omitempty"`    // not on chain long after it was handed to a relay
 	Receipt *Receipt `json:"receipt,omitempty"` // the data node's signed promise to commit it by a deadline
+	Sought  uint64   `json:"sought,omitempty"`  // a lost one: the next block its search on chain reads from (findLost)
 }
 
 type GroupKeys struct {
@@ -109,6 +110,7 @@ type State struct {
 	Taint         []string                `json:"taint"`
 	Groups        map[string]*GroupKeys   `json:"groups"`
 	Alerts        []string                `json:"alerts"`
+	AlertsAt      map[string]int64        `json:"alerts_at,omitempty"`        // alert => chain time it was first seen (alerts expire after alertTTL)
 	Backfill      map[string]bool         `json:"backfill,omitempty"`         // groups whose earlier posts are still to be read
 	PendingDA     map[string]PendingBatch `json:"pending_da,omitempty"`       // committed batches not fetched yet
 	Channels      map[string]NodeChannel  `json:"channels,omitempty"`         // paid data nodes: our channel to each
@@ -863,6 +865,8 @@ func (c *Client) scan() ([]*Item, error) {
 	got = append(got, c.pullPending()...)
 	c.checkPending()
 	c.checkSent()
+	c.findLost() // ones we called lost whose batch this scan didn't read (the cursor passed it): looked for on chain
+	c.tidyAlerts(c.chainNow())
 	// Groups joined since the last scan: read their history too, not only
 	// what was posted after the keys arrived.
 	if len(c.st.Backfill) > 0 {
@@ -946,18 +950,75 @@ func (c *Client) landed(e Envelope, b rawBatch) {
 		return
 	}
 	if r := c.st.Sent[e.hash().Hex()]; r != nil && r.Block == 0 {
-		if r.Lost { // we said it was lost: it landed after all, take the alert back
-			id := e.hash().Hex()[:18]
-			keep := c.st.Alerts[:0]
-			for _, a := range c.st.Alerts {
-				if !strings.HasPrefix(a, "your message "+id+" ") {
-					keep = append(keep, a)
-				}
-			}
-			c.st.Alerts = keep
-		}
-		r.Block, r.Batch, r.Node, r.Lost = b.Block, b.Root, b.URL, false
+		c.foundSent(e.hash().Hex(), r, b.Block, b.Root, b.URL)
 	}
+}
+
+// foundSent: one of our envelopes is on chain (block, batch root, node); if
+// we had said it was lost, the alert is taken back.
+func (c *Client) foundSent(id string, r *SentRec, block uint64, root, url string) {
+	if r.Lost {
+		c.retractAlerts(sentAlertPrefix(id))
+	}
+	r.Block, r.Batch, r.Node, r.Lost, r.Sought = block, root, url, false, 0
+}
+
+// sentAlertPrefix: how the alerts about one sent envelope begin (checkSent).
+func sentAlertPrefix(id string) string { return "your message " + id[:18] + " " }
+
+// retractAlerts drops the alerts that begin with prefix.
+func (c *Client) retractAlerts(prefix string) {
+	keep := c.st.Alerts[:0]
+	for _, a := range c.st.Alerts {
+		if strings.HasPrefix(a, prefix) {
+			delete(c.st.AlertsAt, a)
+		} else {
+			keep = append(keep, a)
+		}
+	}
+	c.st.Alerts = keep
+}
+
+// alertTTL: an alert is shown this long (chain time), then dropped.
+const alertTTL = 7 * 86400
+
+// tidyAlerts: an alert seen for the first time is stamped with the chain time
+// (one from a state file written before alerts had times counts from now);
+// one older than alertTTL is dropped.
+func (c *Client) tidyAlerts(now int64) {
+	if len(c.st.Alerts) == 0 {
+		c.st.AlertsAt = nil
+		return
+	}
+	if c.st.AlertsAt == nil {
+		c.st.AlertsAt = map[string]int64{}
+	}
+	keep, live := c.st.Alerts[:0], map[string]bool{}
+	for _, a := range c.st.Alerts {
+		t, ok := c.st.AlertsAt[a]
+		if !ok {
+			t = now
+			c.st.AlertsAt[a] = t
+		}
+		if now-t > alertTTL {
+			continue
+		}
+		keep = append(keep, a)
+		live[a] = true
+	}
+	c.st.Alerts = keep
+	for a := range c.st.AlertsAt {
+		if !live[a] {
+			delete(c.st.AlertsAt, a)
+		}
+	}
+}
+
+// clearAlerts: 'done --alerts': every current alert is dropped; it says how many.
+func (c *Client) clearAlerts() int {
+	n := len(c.st.Alerts)
+	c.st.Alerts, c.st.AlertsAt = nil, nil
+	return n
 }
 
 // sentGrace: how long a relay may hold an envelope before we call it lost.

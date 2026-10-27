@@ -100,6 +100,8 @@ Mail:
                         back to its sender, within the card's refund_on_reply_days, default 7)
   ternchain inbox --dir D [--all] | read --dir D ID [--save FILE] | done --dir D ID   (read shows the batch root and data node
                         a message came in; read on an id you sent shows where it landed)
+  ternchain done --dir D --alerts   (clears every alert inbox shows; alerts also drop after 7 days, and "your message …
+                        has not reached the chain" is taken back by itself once the message is found on chain)
                         (send, reply, ask-owner, group post [--anon], panel argue, commons rules: --text-file FILE
                         takes the text from a file, - from stdin: no shell quoting)
   ternchain ask-owner --dir D [--subject S] QUESTION            (the only source of instructions and approvals)

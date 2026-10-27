@@ -311,11 +311,7 @@ func (c *Client) batchesSince(from uint64) ([]rawBatch, error) {
 			}
 		}
 	}
-	var others []string // other nodes, in a fixed order
-	for _, u := range urls {
-		others = append(others, u)
-	}
-	sort.Strings(others)
+	others := sortedURLs(urls) // other nodes, in a fixed order
 	// A batch nobody can force on chain any more (its challenge and resolve
 	// windows are over) is never coming: stop asking for it.
 	var horizon uint64
@@ -359,22 +355,7 @@ func (c *Client) batchesSince(from uint64) ([]rawBatch, error) {
 		if !time.Now().Before(deadline) {
 			continue // out of time this scan: the rest waits for the next one
 		}
-		// Our own relay first (net.json "relay": a nearer or reachable copy, e.g. through a tunnel where the
-		// poster's public URL is cut), then the poster's node, then a few other nodes (mirrors). Any of them
-		// is safe: the bytes must hash to the root on chain.
-		own := urls[common.HexToAddress(p.Poster)]
-		order := []string{own}
-		if c.relay != "" && strings.TrimRight(c.relay, "/") != strings.TrimRight(own, "/") {
-			order = []string{c.relay, own}
-		}
-		for _, u := range others {
-			if len(order) > daMirrors {
-				break
-			}
-			if u != own {
-				order = append(order, u)
-			}
-		}
+		order := c.daOrder(urls[common.HexToAddress(p.Poster)], others)
 		asked, missed, answered := 0, 0, 0
 		got, outOfTime := false, false
 		for _, url := range order {
@@ -439,6 +420,75 @@ func (c *Client) batchesSince(from uint64) ([]rawBatch, error) {
 	return out, nil
 }
 
+// sortedURLs: the staked nodes' URLs, in a fixed order.
+func sortedURLs(urls map[common.Address]string) []string {
+	var out []string
+	for _, u := range urls {
+		out = append(out, u)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// daOrder: where a batch is asked for. Our own relay first (net.json "relay":
+// a nearer or reachable copy, e.g. through a tunnel where the poster's public
+// URL is cut), then the poster's node (own), then a few other nodes (mirrors).
+// Any of them is safe: the bytes must hash to the root on chain.
+func (c *Client) daOrder(own string, others []string) []string {
+	order := []string{own}
+	if c.relay != "" && strings.TrimRight(c.relay, "/") != strings.TrimRight(own, "/") {
+		order = []string{c.relay, own}
+	}
+	for _, u := range others {
+		if len(order) > daMirrors {
+			break
+		}
+		if u != own {
+			order = append(order, u)
+		}
+	}
+	return order
+}
+
+// fetchFrom: a batch from the first node in order that serves it, and which
+// one did.
+func fetchFrom(order []string, root common.Hash) ([]byte, string, error) {
+	err := fmt.Errorf("no data node")
+	for _, url := range order {
+		if url == "" {
+			continue
+		}
+		var b []byte
+		if b, err = fetchBatchFn(url, root); err == nil {
+			return b, url, nil
+		}
+	}
+	return nil, "", err
+}
+
+// committedEnvs: the envelopes a reader reads from a committed batch (its
+// first n, of a batch of the size paid for), and the node it came from.
+func (c *Client) committedEnvs(ev event, urls map[common.Address]string, others []string) ([]Envelope, string, error) {
+	root := common.Hash(ev.Args["root"].([32]byte))
+	b, url, err := fetchFrom(c.daOrder(urls[ev.Args["poster"].(common.Address)], others), root)
+	if err != nil {
+		return nil, "", err
+	}
+	es, err := decodeBatch(b)
+	if err != nil {
+		return nil, url, err
+	}
+	if n, ok := ev.Args["n"].(*big.Int); ok && n.Sign() > 0 {
+		if size, ok := ev.Args["size"].(*big.Int); ok && uint64(len(b)) != size.Uint64() {
+			return nil, url, fmt.Errorf("batch %s is %d bytes, %d were paid for", root.Hex()[:10], len(b), size.Uint64())
+		}
+		if uint64(len(es)) > n.Uint64() {
+			es = es[:n.Uint64()]
+		}
+	}
+	return es, url, nil
+}
+
 // findBatch: which committed batch at `block` holds envelope id, and the
 // node that serves it ("", "" if it was posted on chain in full).
 func (c *Client) findBatch(id string, block uint64) (string, string) {
@@ -447,20 +497,16 @@ func (c *Client) findBatch(id string, block uint64) (string, string) {
 		return "", ""
 	}
 	urls := c.daURLs()
+	others := sortedURLs(urls)
 	for _, ev := range evs {
 		if ev.Block != block {
 			continue
 		}
 		root := common.Hash(ev.Args["root"].([32]byte))
-		url := urls[ev.Args["poster"].(common.Address)]
-		b, err := fetchBatch(url, root)
-		if err != nil && c.relay != "" && c.relay != url { // our relay may hold it where the poster's URL is unreachable
-			b, err = fetchBatch(c.relay, root)
-		}
+		es, url, err := c.committedEnvs(ev, urls, others)
 		if err != nil {
-			return root.Hex(), url + " (not reachable now)"
+			return root.Hex(), urls[ev.Args["poster"].(common.Address)] + " (not reachable now)"
 		}
-		es, _ := decodeBatch(b)
 		for _, e := range es {
 			if e.hash().Hex() == id {
 				return root.Hex(), url
@@ -468,6 +514,176 @@ func (c *Client) findBatch(id string, block uint64) (string, string) {
 		}
 	}
 	return "", ""
+}
+
+// Looking for lost envelopes on chain (findLost): at most lostPerScan records
+// a scan, each at most once, at most lostFetches batches fetched in all.
+const (
+	lostPerScan = 5
+	lostFetches = 16
+	lostSlack   = 600 // seconds before the hand-over the search starts (clocks, a relay's queue)
+)
+
+// findLost: an envelope we called lost (not on chain long after a relay took
+// it) may be on chain all the same, in a batch our scan never read: the
+// cursor had passed its block (an older client skipped it, a node served it
+// late). For a lost record under alertTTL old it is looked for: first as a
+// batch of its own (the envelope id is that batch's root: Inbox.commitment),
+// then in the batches posted or committed since it was handed over, fetched
+// in the reader's order. Found: where it landed is kept and the alert taken back.
+func (c *Client) findLost() {
+	if len(c.st.Sent) == 0 {
+		return
+	}
+	now := c.chainNow()
+	var ids []string
+	for id, r := range c.st.Sent {
+		if r.Lost && r.Block == 0 && now-r.Time <= alertTTL && len(id) >= 18 {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	sort.Slice(ids, func(i, j int) bool { // the newest first, then by id: a fixed order
+		a, b := c.st.Sent[ids[i]], c.st.Sent[ids[j]]
+		return a.Time > b.Time || a.Time == b.Time && ids[i] < ids[j]
+	})
+	if len(ids) > lostPerScan {
+		ids = ids[:lostPerScan]
+	}
+	var urls map[common.Address]string
+	stakedURL := func(a common.Address) string {
+		if urls == nil {
+			urls = c.daURLs()
+		}
+		return urls[a]
+	}
+	// (a) a batch of its own: one call each.
+	var rest []string
+	for _, id := range ids {
+		r := c.st.Sent[id]
+		st, err := c.ch.call("Inbox", "commitment", common.HexToHash(id))
+		if err != nil || st[2].(uint8) == 0 || st[2].(uint8) == 4 { // unknown, or lost (its poster paid the challenger: nobody can read it)
+			rest = append(rest, id)
+			continue
+		}
+		at, block := int64(st[1].(uint64)), uint64(0)
+		from := c.blockAt(at)
+		if evs, err := c.ch.eventsFrom(from, "Inbox", "Committed", nil, []common.Hash{common.HexToHash(id)}); err == nil && len(evs) > 0 {
+			block = evs[0].Block
+		} else {
+			block = from
+		}
+		c.foundSent(id, r, block, common.HexToHash(id).Hex(), stakedURL(st[0].(common.Address)))
+	}
+	if len(rest) == 0 {
+		return
+	}
+	// (b) in a batch with others: posted in full, or committed and fetched.
+	head, err := c.ch.headNumber(0)
+	if err != nil {
+		return
+	}
+	from := head + 1
+	for _, id := range rest {
+		r := c.st.Sent[id]
+		if r.Sought == 0 {
+			r.Sought = c.blockAt(max(r.Time-lostSlack, now-alertTTL))
+		}
+		from = min(from, r.Sought)
+	}
+	if from > head {
+		return
+	}
+	evs, err := c.ch.eventsMulti(from, "Inbox", "Posted", "Committed")
+	if err != nil {
+		return
+	}
+	want := map[string]bool{}
+	for _, id := range rest {
+		want[id] = true
+	}
+	var others []string
+	fetched, deadline := 0, time.Now().Add(daBudget)
+	stop := uint64(0) // the block of the first event not read (0: all read)
+	for _, ev := range evs {
+		if len(want) == 0 {
+			break
+		}
+		need := false // a record still looked for whose search hasn't passed this block
+		for id := range want {
+			if c.st.Sent[id].Sought <= ev.Block {
+				need = true
+				break
+			}
+		}
+		if !need {
+			continue
+		}
+		var es []Envelope
+		root, url := "", ""
+		switch ev.Name {
+		case "Posted":
+			es, _ = decodeBatch(ev.Args["batch"].([]byte))
+		case "Committed":
+			if fetched >= lostFetches || !time.Now().Before(deadline) {
+				stop = ev.Block
+			} else {
+				fetched++
+				if urls == nil {
+					urls = c.daURLs()
+				}
+				if others == nil {
+					others = sortedURLs(urls)
+				}
+				root = common.Hash(ev.Args["root"].([32]byte)).Hex()
+				es, url, _ = c.committedEnvs(ev, urls, others) // not served: not found here (the scan's own reading retries it)
+			}
+		}
+		if stop != 0 {
+			break
+		}
+		for _, e := range es {
+			id := e.hash().Hex()
+			if want[id] && c.st.Sent[id].Sought <= ev.Block { // posted in full: no root, no node (as landed keeps it)
+				c.foundSent(id, c.st.Sent[id], ev.Block, root, url)
+				delete(want, id)
+			}
+		}
+	}
+	next := head + 1
+	if stop != 0 {
+		next = stop // the rest of the window waits for the next scan
+	} else if len(evs) > 0 && evs[len(evs)-1].Block >= next {
+		next = evs[len(evs)-1].Block + 1
+	}
+	for id := range want {
+		if r := c.st.Sent[id]; r.Sought < next {
+			r.Sought = next
+		}
+	}
+}
+
+// blockAt: the first block made at or after chain time t (the head if none).
+func (c *Client) blockAt(t int64) uint64 {
+	lo := c.ch.dep.Block
+	hi, err := c.ch.headNumber(0)
+	if err != nil || hi < lo {
+		return lo
+	}
+	if bt, err := c.ch.blockTime(hi); err != nil || bt < t {
+		return hi
+	}
+	for lo < hi {
+		mid := lo + (hi-lo)/2
+		if bt, err := c.ch.blockTime(mid); err == nil && bt >= t {
+			hi = mid
+		} else {
+			lo = mid + 1
+		}
+	}
+	return lo
 }
 
 // ---- the data node side (in the relayer)

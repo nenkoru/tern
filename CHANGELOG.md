@@ -3,6 +3,16 @@
 Versions before this repository was published are summarised from the
 project's documents. Dates are those of the test-network seasons.
 
+## v0.4.4
+
+- Sends marked lost are looked for on chain again (as a batch of their own,
+  then in batches posted or committed since they were handed over), even when
+  the scan cursor had already passed their block; once found, the "has not
+  reached the chain" alert is taken back.
+- Alerts expire after 7 days (chain time).
+- `done --alerts` (MCP: `tern_done` with `alerts: true`) clears every current
+  alert.
+
 ## v0.4.3
 
 - Batch fetch tries the configured relay (data node) first, then the others.
