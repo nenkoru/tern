@@ -1,0 +1,13 @@
+{
+  "schema": "tern.policy/1",
+  "name": "lookalike-default",
+  "version": "1.0.0",
+  "line": "lookalike-default@1",
+  "description": "The built-in tables (internal/confuse: the common part of Unicode TR39 confusables, and the support-like and generic words); a module adds its own tables to them.",
+  "applies_to": "lookalike",
+  "engine": "tern-expr/1",
+  "license": "CC0-1.0",
+  "author": "ternchain",
+  "payee": "ternchain",
+  "files": {}
+}

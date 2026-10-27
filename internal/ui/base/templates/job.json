@@ -1,0 +1,14 @@
+{"title": "job", "components": [
+  {"id": "root", "component": "Card", "variant": "outlined", "child": "body"},
+  {"id": "body", "component": "Column", "gap": "small", "children": ["kind", "subject", "role", "pay", "from", "acts"]},
+  {"id": "kind", "component": "Badge", "tone": "good", "text": "Job offer"},
+  {"id": "subject", "component": "Text", "variant": "h3", "text": {"path": "/card/subject"}},
+  {"id": "role", "component": "Text", "variant": "body", "text": {"path": "/card/role"}},
+  {"id": "pay", "component": "Stat", "label": "Pay", "value": {"path": "/card/pay_line"}},
+  {"id": "from", "component": "Text", "variant": "caption", "text": {"path": "/card/from_line"}},
+  {"id": "acts", "component": "Row", "gap": "small", "children": ["apply", "more"]},
+  {"id": "apply", "component": "Button", "variant": "primary", "child": "apply_l", "action": {"event": {"name": "apply"}}},
+  {"id": "apply_l", "component": "Text", "text": "Apply"},
+  {"id": "more", "component": "Button", "variant": "quiet", "child": "more_l", "action": {"event": {"name": "more"}}},
+  {"id": "more_l", "component": "Text", "text": "More"}
+]}

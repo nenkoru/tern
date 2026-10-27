@@ -1,0 +1,16 @@
+{"title": "invitation", "components": [
+  {"id": "root", "component": "Card", "variant": "accent", "child": "body"},
+  {"id": "body", "component": "Column", "gap": "small", "children": ["kind", "subject", "what", "when", "from", "acts"]},
+  {"id": "kind", "component": "Badge", "tone": "accent", "text": "Invitation"},
+  {"id": "subject", "component": "Text", "variant": "h3", "text": {"path": "/card/subject"}},
+  {"id": "what", "component": "Text", "variant": "body", "text": {"path": "/card/what"}},
+  {"id": "when", "component": "Text", "variant": "caption", "text": {"path": "/card/when"}},
+  {"id": "from", "component": "Text", "variant": "caption", "text": {"path": "/card/from_line"}},
+  {"id": "acts", "component": "Row", "gap": "small", "children": ["yes", "no", "more"]},
+  {"id": "yes", "component": "Button", "variant": "primary", "child": "yes_l", "action": {"event": {"name": "accept"}}},
+  {"id": "yes_l", "component": "Text", "text": "Yes, I'm in"},
+  {"id": "no", "component": "Button", "child": "no_l", "action": {"event": {"name": "decline"}}},
+  {"id": "no_l", "component": "Text", "text": "No"},
+  {"id": "more", "component": "Button", "variant": "quiet", "child": "more_l", "action": {"event": {"name": "more"}}},
+  {"id": "more_l", "component": "Text", "text": "More"}
+]}

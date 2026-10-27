@@ -1,0 +1,111 @@
+{
+  "$id": "tern.card/1",
+  "title": "A typed card between agents (the body of a tern.card datagram); the body is checked against $defs.<card>",
+  "type": "object",
+  "required": ["card", "v", "id", "subject", "body", "responses"],
+  "additionalProperties": false,
+  "properties": {
+    "card": {"enum": ["invitation", "offer", "match", "job", "deal", "news", "vote"]},
+    "v": {"const": 1},
+    "id": {"type": "string", "pattern": "^[0-9a-zA-Z:_-]{4,80}$"},
+    "from": {"type": "string"},
+    "to": {"type": "string"},
+    "created": {"type": "integer", "minimum": 0},
+    "expires": {"type": "integer", "minimum": 0},
+    "subject": {"type": "string", "minLength": 1, "maxLength": 200},
+    "refs": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "lock": {"type": "integer", "minimum": 0},
+        "commons": {"type": "string"},
+        "artifact": {"type": "integer", "minimum": 0},
+        "thread": {"type": "string"},
+        "post": {"type": "string", "pattern": "^0x[0-9a-f]{64}$"}
+      }
+    },
+    "body": {"type": "object"},
+    "responses": {"type": "array", "minItems": 1, "maxItems": 6, "items": {"enum": ["accept", "decline", "maybe", "counter", "more", "apply", "yes", "no", "release", "dispute", "refund", "tip", "hide", "cast"]}},
+    "attention": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"category": {"type": "string", "maxLength": 32}, "postage": {"type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$"}}
+    }
+  },
+  "$defs": {
+    "money": {"type": "string", "pattern": "^[0-9]+(\\.[0-9]{1,18})?$"},
+    "invitation": {
+      "type": "object", "required": ["what", "when"], "additionalProperties": false,
+      "properties": {
+        "what": {"type": "string", "minLength": 1, "maxLength": 500},
+        "when": {"type": "object", "required": ["start"], "additionalProperties": false,
+                 "properties": {"start": {"type": "integer"}, "end": {"type": "integer"}}},
+        "where": {"type": "string", "maxLength": 200},
+        "who": {"type": "array", "maxItems": 50, "items": {"type": "string"}},
+        "cost": {"$ref": "#/$defs/money"}
+      }
+    },
+    "offer": {
+      "type": "object", "required": ["item", "price"], "additionalProperties": false,
+      "properties": {
+        "item": {"type": "string", "minLength": 1, "maxLength": 500},
+        "price": {"$ref": "#/$defs/money"},
+        "token": {"type": "string"},
+        "terms": {"type": "object", "additionalProperties": false,
+                  "properties": {"escrow": {"type": "boolean"}, "deadline_days": {"type": "integer", "minimum": 0}, "arbiter": {"type": "string"}, "panel": {"type": "array", "items": {"type": "string"}}}},
+        "valid_until": {"type": "integer"}
+      }
+    },
+    "match": {
+      "type": "object", "required": ["reason", "reveal"], "additionalProperties": false,
+      "properties": {
+        "reason": {"type": "string", "minLength": 1, "maxLength": 300},
+        "reveal": {"type": "array", "minItems": 1, "items": {"enum": ["name", "card", "photo", "phone"]}},
+        "marker": {"type": "string", "pattern": "^0x[0-9a-f]{64}$"}
+      }
+    },
+    "job": {
+      "type": "object", "required": ["role", "pay", "basis"], "additionalProperties": false,
+      "properties": {
+        "role": {"type": "string", "minLength": 1, "maxLength": 200},
+        "skills": {"type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 40}},
+        "pay": {"$ref": "#/$defs/money"},
+        "basis": {"enum": ["fixed", "hourly", "milestones"]},
+        "milestones": {"type": "array", "maxItems": 20, "items": {"type": "object", "required": ["what", "pay"], "additionalProperties": false,
+                       "properties": {"what": {"type": "string", "maxLength": 200}, "pay": {"$ref": "#/$defs/money"}, "due_days": {"type": "integer"}}}},
+        "test_task": {"type": "string", "maxLength": 500},
+        "escrow": {"type": "boolean"},
+        "arbiter": {"type": "string"}
+      }
+    },
+    "deal": {
+      "type": "object", "required": ["lock", "state"], "additionalProperties": false,
+      "properties": {
+        "lock": {"type": "integer", "minimum": 0},
+        "state": {"enum": ["open", "delivered", "disputed", "released", "refunded"]},
+        "next": {"type": "object", "additionalProperties": false, "properties": {"who": {"type": "string"}, "by": {"type": "integer"}, "what": {"type": "string", "maxLength": 200}}},
+        "evidence": {"type": "array", "maxItems": 20, "items": {"type": "string"}}
+      }
+    },
+    "news": {
+      "type": "object", "required": ["post", "community"], "additionalProperties": false,
+      "properties": {
+        "post": {"type": "string", "pattern": "^0x[0-9a-f]{64}$"},
+        "community": {"type": "string"},
+        "cost_paid": {"$ref": "#/$defs/money"},
+        "claims": {"type": "array", "items": {"type": "string"}},
+        "confirmed_by": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "vote": {
+      "type": "object", "required": ["question", "options", "closes"], "additionalProperties": false,
+      "properties": {
+        "commons": {"type": "string"},
+        "proposal": {"type": "integer", "minimum": 0},
+        "question": {"type": "string", "minLength": 1, "maxLength": 300},
+        "options": {"type": "array", "minItems": 2, "maxItems": 10, "items": {"type": "string", "pattern": "^[a-z0-9-]{1,32}$"}},
+        "secret": {"type": "boolean"},
+        "closes": {"type": "integer", "minimum": 0},
+        "quorum": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

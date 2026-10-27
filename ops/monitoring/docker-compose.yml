@@ -1,0 +1,85 @@
+# Monitoring for a ternchain L1 node box: Prometheus, Alertmanager, Grafana,
+# node_exporter (host metrics + the seal exporter's textfile), blackbox_exporter
+# (HTTP probes of the data node and the public RPCs).
+#
+#   cd ops/monitoring && docker compose up -d
+#
+# Linux only: every service uses the host network, so Prometheus can scrape
+# Besu's metrics on 127.0.0.1:9545, and everything listens on 127.0.0.1.
+# Reach Grafana through an SSH tunnel: ssh -L 3000:127.0.0.1:3000 BOX
+#
+# Versions: pinned tags that existed by mid-2025 (from memory, not pulled
+# while writing this). Run `docker compose pull` once and replace each tag by
+# its digest (image@sha256:…) after it works. Newer releases exist.
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0   # LTS line
+    network_mode: host
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.listen-address=127.0.0.1:9090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./secrets:/etc/prometheus/secrets:ro   # basic-auth passwords for remote nodes (optional)
+      - prometheus-data:/prometheus
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    network_mode: host
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --web.listen-address=127.0.0.1:9093
+      - --cluster.listen-address=     # one instance: no gossip port
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./secrets:/etc/alertmanager/secrets:ro  # telegram_bot_token (see README)
+      - alertmanager-data:/alertmanager
+
+  grafana:
+    image: grafana/grafana:12.0.2
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      GF_SERVER_HTTP_ADDR: 127.0.0.1
+      GF_SERVER_HTTP_PORT: "3000"
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./secrets/grafana_admin_password:/run/secrets/grafana_admin_password:ro
+      - grafana-data:/var/lib/grafana
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+      - --web.listen-address=127.0.0.1:9100
+      - --collector.textfile.directory=/textfile
+    volumes:
+      - /:/host:ro,rslave
+      - /var/lib/node_exporter/textfile:/textfile:ro
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.26.0
+    network_mode: host
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/blackbox/blackbox.yml
+      - --web.listen-address=127.0.0.1:9115
+    volumes:
+      - ./blackbox.yml:/etc/blackbox/blackbox.yml:ro
+
+volumes:
+  prometheus-data:
+  alertmanager-data:
+  grafana-data:

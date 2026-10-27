@@ -1,0 +1,60 @@
+# Besu config file for a PUBLIC RPC node of a ternchain L1.
+# The same as `ternchain validator run --profile rpc`, for people who run Besu
+# themselves (native or their own Docker setup):
+#   besu --config-file=/etc/besu/rpc-node.toml
+# Option names are Besu's CLI flags without the leading "--".
+# Lines marked CHECK: confirm with `besu --help` on the pinned release
+# (ops/besu/VERSION); a wrong key stops Besu at start, so you will see it.
+#
+# This node never seals: its key is NOT in the validator set.
+# It sits behind Caddy (ops/besu/Caddyfile.rpc), which adds TLS, a body size
+# limit and a per-IP rate limit. Besu itself listens on 127.0.0.1 only.
+
+# --- data, chain, identity ---------------------------------------------------
+data-path="/var/lib/besu/data"
+genesis-file="/var/lib/besu/genesis.json"          # the network's genesis.json (compare its keccak)
+node-private-key-file="/var/lib/besu/key"          # from `ternchain validator init --dir …` (a new key, not a validator's)
+sync-mode="FULL"
+# data-storage-format: BONSAI is the default. Keep it (an RPC node needs no archive).
+
+# --- p2p ---------------------------------------------------------------------
+p2p-host="203.0.113.10"                            # this machine's public IP
+p2p-port=30303
+bootnodes=[
+  "enode://REPLACE_1@198.51.100.1:30303",
+  "enode://REPLACE_2@198.51.100.2:30303",
+  "enode://REPLACE_3@198.51.100.3:30303",
+]
+
+# --- JSON-RPC over HTTP: public methods only ---------------------------------
+rpc-http-enabled=true
+rpc-http-host="127.0.0.1"                          # Caddy is in front; never 0.0.0.0
+rpc-http-port=8545
+rpc-http-api=["ETH","NET","WEB3"]                  # no ADMIN, DEBUG, TXPOOL, QBFT, TRACE
+# CORS off: leave rpc-http-cors-origins unset (Besu's default is none).
+host-allowlist=["rpc1.example.org","localhost","127.0.0.1"]  # the public host name(s) Caddy serves
+rpc-http-max-active-connections=200                # CHECK
+rpc-http-max-batch-size=20                         # CHECK (Besu's default is 1024)
+rpc-max-logs-range=5000                            # CHECK: eth_getLogs block range cap
+rpc-gas-cap="50000000"                             # CHECK: eth_call / estimateGas gas cap
+
+# --- JSON-RPC over WebSocket: the same methods -------------------------------
+rpc-ws-enabled=true
+rpc-ws-host="127.0.0.1"
+rpc-ws-port=8546
+rpc-ws-api=["ETH","NET","WEB3"]
+rpc-ws-max-active-connections=200                  # CHECK
+
+# --- never on a public node --------------------------------------------------
+# rpc-http-authentication-enabled, engine-rpc, graphql-http-enabled: all off (defaults).
+
+# --- transactions, as every ternchain node ------------------------------------
+min-gas-price=0                                    # EIP-1559 base fee only
+revert-reason-enabled=true
+
+# --- metrics, local only (Prometheus on this box or a tunnel) ----------------
+metrics-enabled=true
+metrics-host="127.0.0.1"
+metrics-port=9545
+
+logging="INFO"

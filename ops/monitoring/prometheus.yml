@@ -1,0 +1,110 @@
+# Prometheus for a ternchain L1 (ops/monitoring/README.md).
+# Replace the example hosts. Each Besu node runs with `--metrics`
+# (metrics on 127.0.0.1:9545). Remote nodes are reached through a small TLS
+# proxy with basic auth on each node (README, "Remote nodes").
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    network: ternchain-testnet   # chain id 83760
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["127.0.0.1:9093"]
+
+scrape_configs:
+  # Besu on this box (the archive node, or your own validator).
+  # 5 s, so "no new block for 30 s" has 6 samples to look at.
+  - job_name: besu
+    scrape_interval: 5s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["127.0.0.1:9545"]
+        labels: {node: archive, role: archive}
+
+  # Besu on other machines, through each node's metrics proxy (HTTPS + basic auth).
+  # One entry per node. Remove this job if you only watch your own box.
+  - job_name: besu-remote
+    scrape_interval: 5s
+    scheme: https
+    metrics_path: /metrics
+    basic_auth:
+      username: prometheus
+      password_file: /etc/prometheus/secrets/metrics_password
+    static_configs:
+      - targets: ["val-ana.example.org:9443"]
+        labels: {node: ana, role: validator}
+      - targets: ["val-ben.example.org:9443"]
+        labels: {node: ben, role: validator}
+      - targets: ["rpc1.example.org:9443"]
+        labels: {node: rpc1, role: rpc}
+      - targets: ["rpc2.example.org:9443"]
+        labels: {node: rpc2, role: rpc}
+      - targets: ["boot1.example.org:9443"]
+        labels: {node: boot1, role: bootnode}
+
+  # Host metrics of this box, plus the textfile collector:
+  # ternchain_* from seal-exporter.sh (seals, rounds, head age for the whole chain).
+  - job_name: node
+    static_configs:
+      - targets: ["127.0.0.1:9100"]
+        labels: {node: archive}
+
+  # node_exporter on other machines (same proxy, path /node/metrics; README).
+  - job_name: node-remote
+    scheme: https
+    metrics_path: /node/metrics
+    basic_auth:
+      username: prometheus
+      password_file: /etc/prometheus/secrets/metrics_password
+    static_configs:
+      - targets: ["val-ana.example.org:9443"]
+        labels: {node: ana}
+      - targets: ["rpc1.example.org:9443"]
+        labels: {node: rpc1}
+
+  # The data node (relay serve --da): GET /info must answer 2xx.
+  - job_name: blackbox-datanode
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://dn1.example.org/info
+          - https://dn2.example.org/info
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+      - target_label: probe
+        replacement: datanode
+
+  # The public RPCs: eth_chainId must answer 0x14730 (83760).
+  - job_name: blackbox-rpc
+    metrics_path: /probe
+    params:
+      module: [rpc_chainid]
+    static_configs:
+      - targets:
+          - https://rpc1.example.org
+          - https://rpc2.example.org
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+      - target_label: probe
+        replacement: rpc
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["127.0.0.1:9090"]

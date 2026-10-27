@@ -1,0 +1,30 @@
+# Alertmanager: where alerts go. Default: a Telegram group.
+# For Matrix, see README ("Matrix"): a webhook to a small bridge.
+route:
+  receiver: telegram
+  group_by: [alertname, node, validator]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: [severity="critical"]
+      receiver: telegram
+      repeat_interval: 1h
+
+receivers:
+  - name: telegram
+    telegram_configs:
+      - bot_token_file: /etc/alertmanager/secrets/telegram_bot_token
+        chat_id: -1001234567890        # the alert group's id (README: how to find it)
+        parse_mode: HTML
+        send_resolved: true
+
+  # - name: matrix
+  #   webhook_configs:
+  #     - url: http://127.0.0.1:9088/alerts      # the Matrix bridge (README)
+  #       send_resolved: true
+
+inhibit_rules:
+  # While the whole chain is halted, do not also page for each validator.
+  - source_matchers: [alertname="ChainHeadOld"]
+    target_matchers: [alertname=~"ValidatorNotSealing|ValidatorNotProposing|RoundChanges|RoundChangesMany"]

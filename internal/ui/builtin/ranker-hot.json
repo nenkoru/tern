@@ -1,0 +1,4 @@
+{"schema": "tern.ranker/1", "name": "hot", "version": "1.0.0", "line": "hot@1", "description": "score = (1 + replies) / (age h + 2)^1.5",
+ "applies_to": "tern.schema/feed@1", "engine": "tern-expr/1", "inputs": ["item.age_hours", "item.replies", "item.hidden"], "filter": "!item.hidden",
+ "score": "(1 + item.replies) / pow(item.age_hours + 2, 1.5)", "reason": "{item.replies} replies, {item.age_hours:1} h old",
+ "license": "CC0-1.0", "author": "ternchain", "payee": "ternchain", "files": {}}

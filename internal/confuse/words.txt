@@ -1,0 +1,18 @@
+# Words for look-alike names (the built-in lists). A lookalike policy module
+# (tern.policy/1, tables.words) adds words in the same sections; none can be removed.
+
+# [support]: a known name plus one of these is a look-alike ("anna-support", "oscarofficial").
+# Order matters: the first that matches is the one taken out to find the name underneath.
+[support]
+support help official admin team service security verify bank staff real
+
+# [generic]: words that, added to a registered name as their own part, make a look-alike of it
+# ("oscar-support-desk", "official-oscar-team", "oscar-pay").
+[generic]
+support help helpdesk desk official admin team service services security verify verified bank staff real
+pay payment payments wallet hq inc ltd llc co corp app info news live online care center centre office
+group io dao the my bot ai mail login account accounts
+
+# [scripts]: the writing systems a name may not mix (Go unicode.Scripts names).
+[scripts]
+Latin Cyrillic Greek Han Arabic Hebrew Armenian Georgian

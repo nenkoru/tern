@@ -1,0 +1,23 @@
+{"title": "thread", "components": [
+  {"id": "root", "component": "Column", "gap": "small", "children": ["post", "div", "chead", "comments"]},
+  {"id": "post", "component": "List", "children": {"componentId": "p", "path": "/items"}},
+  {"id": "p", "component": "Column", "gap": "small", "children": ["title", "byline", "text", "acts"]},
+  {"id": "title", "component": "Text", "variant": "h2", "text": {"path": "title"}},
+  {"id": "byline", "component": "Text", "variant": "caption", "text": {"path": "byline"}},
+  {"id": "text", "component": "Text", "variant": "body", "text": {"path": "text"}},
+  {"id": "acts", "component": "Row", "gap": "small", "children": ["up", "down", "tip", "tipbig"]},
+  {"id": "up", "component": "Button", "child": "up_l", "action": {"event": {"name": "up"}}},
+  {"id": "up_l", "component": "Text", "text": "▲ Up"},
+  {"id": "down", "component": "Button", "child": "down_l", "action": {"event": {"name": "down"}}},
+  {"id": "down_l", "component": "Text", "text": "▼ Down"},
+  {"id": "tip", "component": "Button", "child": "tip_l", "action": {"event": {"name": "tip"}}},
+  {"id": "tip_l", "component": "Text", "text": "Tip (small)"},
+  {"id": "tipbig", "component": "Button", "variant": "primary", "child": "tipbig_l", "action": {"event": {"name": "tip_big"}}},
+  {"id": "tipbig_l", "component": "Text", "text": "Tip (big)"},
+  {"id": "div", "component": "Divider"},
+  {"id": "chead", "component": "Text", "variant": "caption", "text": {"path": "/comments_summary"}},
+  {"id": "comments", "component": "List", "children": {"componentId": "c", "path": "/comments"}},
+  {"id": "c", "component": "Column", "gap": "none", "children": ["cby", "ctext"]},
+  {"id": "cby", "component": "Text", "variant": "caption", "text": {"path": "byline"}},
+  {"id": "ctext", "component": "Text", "variant": "body", "text": {"path": "text"}}
+]}

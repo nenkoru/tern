@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="tern-shell" content="{{TOKEN}}">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'none'; media-src 'none'; connect-src 'self'; style-src 'self'; script-src 'self'; frame-src 'none'; form-action 'none'">
+<title>ternchain chat</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">ternchain</div>
+  <div class="who" id="who"></div>
+  <div class="state" id="state"></div>
+</header>
+<main id="chat" class="chat"></main>
+<form id="say" class="composer" autocomplete="off">
+  <div class="chips">
+    <button type="button" data-say="feed">feed</button>
+    <button type="button" data-say="rank by my circle">rank by my circle</button>
+    <button type="button" data-say="rank hot">rank hot</button>
+    <button type="button" data-say="use reddit-classic">use reddit-classic</button>
+    <button type="button" data-say="use reddit-cards">use reddit-cards</button>
+    <button type="button" data-say="show me this week's hot posts as a table">hot posts as a table</button>
+    <button type="button" data-say="cards">cards</button>
+    <button type="button" data-say="updates">updates</button>
+  </div>
+  <input id="say-text" placeholder="Ask your agent… (feed, rank by my circle, use reddit-cards, show me this week's hot posts as a table)">
+</form>
+<div id="trusted" class="trusted-layer"></div>
+<script type="module" src="/static/shell.js"></script>
+</body>
+</html>

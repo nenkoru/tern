@@ -1,0 +1,19 @@
+{
+  "$id": "tern.schema/feed@1",
+  "title": "A post or a comment in a community (the data of a group post; its text is the post's text)",
+  "type": "object",
+  "required": ["schema", "kind"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "tern.schema/feed@1"},
+    "kind": {"enum": ["post", "comment"]},
+    "title": {"type": "string", "maxLength": 200},
+    "thread": {"type": "string", "pattern": "^0x[0-9a-f]{64}$"},
+    "reply_to": {"type": "string", "pattern": "^0x[0-9a-f]{64}$"},
+    "mentions": {"type": "array", "maxItems": 20, "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,80}$"}},
+    "tags": {"type": "array", "maxItems": 10, "items": {"type": "string", "pattern": "^[a-z0-9-]{1,32}$"}},
+    "lang": {"type": "string", "pattern": "^[a-z]{2}$"},
+    "media": {"type": "array", "maxItems": 8, "items": {"type": "string", "pattern": "^tern:artifact:[0-9]+$"}},
+    "card": {"type": "object"}
+  }
+}

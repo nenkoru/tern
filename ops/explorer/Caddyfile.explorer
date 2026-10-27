@@ -1,0 +1,18 @@
+# One host name for the Blockscout UI and its API (EXPLORER_HOST in .env).
+# /api, /socket and the backend's own paths go to the backend; the rest to the UI.
+{$EXPLORER_HOST} {
+	request_body {
+		max_size 2MB      # contract verification uploads sources
+	}
+	@backend path /api/* /api /socket/* /socket /sitemap.xml
+	handle @backend {
+		reverse_proxy backend:4000
+	}
+	handle {
+		reverse_proxy frontend:3000
+	}
+	log {
+		output stdout
+		format json
+	}
+}

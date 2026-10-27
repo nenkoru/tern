@@ -1,0 +1,14 @@
+{
+  "schema": "tern.policy/1",
+  "name": "spam-default",
+  "version": "1.0.0",
+  "line": "spam-default@1",
+  "description": "A post 60% the same words as its owner's earlier one there is hidden (one name's own series of 3 is fine); more than 6 posts an hour from one owner's names are hidden; an owner whose names paid more than 20 names in a day is a bulk sender, priced as ads.",
+  "applies_to": "spam",
+  "engine": "tern-expr/1",
+  "params": {"near_dup_at": 0.6, "near_dup_series": 3, "posts_per_hour": 6, "rate_window_minutes": 60, "bulk_postage_at": 20},
+  "license": "CC0-1.0",
+  "author": "ternchain",
+  "payee": "ternchain",
+  "files": {}
+}

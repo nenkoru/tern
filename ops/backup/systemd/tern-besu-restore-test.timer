@@ -1,0 +1,10 @@
+# Runs the restore test on the 1st of each month at 05:00 UTC.
+[Unit]
+Description=monthly ternchain Besu restore test
+
+[Timer]
+OnCalendar=*-*-01 05:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

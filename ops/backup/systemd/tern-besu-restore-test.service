@@ -1,0 +1,14 @@
+# Monthly restore test of the newest backup (ops/backup/besu-restore-test.sh).
+[Unit]
+Description=ternchain: restore test of the newest Besu backup
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/tern/backup.env
+# The newest archive (tar method). For rsync snapshots use: /opt/tern/besu-restore-test.sh ${TERN_BACKUP_DIR}/snap-latest
+# ($$ is a literal $ for the shell: systemd expands single $ itself.)
+ExecStart=/bin/sh -c 'exec /opt/tern/besu-restore-test.sh "$$(ls -1t "$${TERN_BACKUP_DIR:-/var/backups/tern-besu}"/besu-*.tar.zst | head -1)"'
+Nice=10
+TimeoutStartSec=6h

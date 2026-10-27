@@ -1,0 +1,11 @@
+# security.txt for ternchain (RFC 9116).
+# PLACEHOLDER: the contact address is not set yet. It must be set (and this
+# comment removed) before the repository or a network site is made public.
+# The full policy, scope and timeline: SECURITY.md in the repository root.
+# Never report a vulnerability in a public issue.
+
+Contact: security@ (to be set before public release)
+Expires: 2027-10-26T00:00:00.000Z
+Policy: https://github.com/nenkoru/tern/blob/main/SECURITY.md
+Acknowledgments: https://github.com/nenkoru/tern/blob/main/SECURITY.md#thanks
+Preferred-Languages: en, ru

@@ -1,0 +1,71 @@
+# Caddy in front of a public ternchain RPC node (ops/besu/rpc-node.md).
+# TLS from Let's Encrypt, a request body limit, a per-IP rate limit,
+# HTTP JSON-RPC to Besu on 127.0.0.1:8545 and WebSocket to 127.0.0.1:8546.
+#
+# rate_limit is NOT in standard Caddy. It is the plugin
+# github.com/mholt/caddy-ratelimit. Build Caddy with it:
+#   go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+#   xcaddy build --with github.com/mholt/caddy-ratelimit
+#   sudo mv caddy /usr/bin/caddy && caddy list-modules | grep rate_limit
+# Without the plugin: delete the `order` line and the `rate_limit` block,
+# and use the nftables limit in rpc-node.md ("Fallback without the plugin").
+#
+# Change rpc1.example.org to your host name. It must also be in Besu's
+# host-allowlist (--rpc-allow-hosts or rpc-node.toml): Caddy passes the
+# original Host header on.
+
+{
+	order rate_limit before reverse_proxy
+	# email ops@example.org    # for Let's Encrypt notices
+}
+
+rpc1.example.org {
+	# JSON-RPC requests are small. 256 KB fits a large signed transaction.
+	request_body {
+		max_size 256KB
+	}
+
+	# Per client IP: 20 requests a second, and 600 a minute.
+	# Behind another proxy or a CDN, set trusted_proxies (global options)
+	# so that {client_ip} is the real client, not the CDN.
+	rate_limit {
+		zone per_ip_second {
+			key {client_ip}
+			events 20
+			window 1s
+		}
+		zone per_ip_minute {
+			key {client_ip}
+			events 600
+			window 1m
+		}
+	}
+
+	# Only POST (JSON-RPC) and WebSocket upgrades. Everything else: 405.
+	@ws {
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	@bad {
+		not method POST
+		not header Upgrade websocket
+	}
+	respond @bad "JSON-RPC: POST only" 405
+
+	reverse_proxy @ws 127.0.0.1:8546
+	reverse_proxy 127.0.0.1:8545 {
+		# Give up on a stuck backend instead of piling up connections.
+		transport http {
+			response_header_timeout 30s
+		}
+	}
+
+	# No request bodies in logs (Caddy never logs them). Keep 7 days.
+	log {
+		output file /var/log/caddy/rpc.log {
+			roll_size 50MiB
+			roll_keep_for 168h
+		}
+		format json
+	}
+}
