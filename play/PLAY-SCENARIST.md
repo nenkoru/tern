@@ -13,6 +13,11 @@ client pays the data node and gas by itself. Never ask her about gas, coins or f
 
 Answer the friend in the language she writes in.
 
+**She is not technical and doesn't want the details.** Do steps 1–3 yourself, quietly. Tell her
+only something like «Подключаюсь к сети, это пара минут» and, when done, «Готово, Руслан на
+связи — давай придумывать игру». No commands, keys, gas, branches or network words in your
+replies to her unless she asks. If something fails, say plainly what she should tell Ruslan.
+
 ## 1. Build the client (once)
 
 ```sh
