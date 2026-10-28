@@ -25,7 +25,7 @@ contract Registry {
         uint32 ownerVersion;     // owner version the grant was issued under
         bool revoked;
         uint128 spendPerEpoch;   // limit for the Bank, in wei
-        string name;             // "ada.oscar"
+        string name;             // "mika.ruslan"
     }
 
     mapping(bytes32 => Owner) public owners; // keccak256(name)

@@ -68,7 +68,7 @@ interface ITreasuryGrant {
 ///            reviewers (or any condition), refundable to the treasury
 /// No one holds a key to any of it, the deployer included.
 ///
-/// Governance-critical proposals (docs/abuse/VALIDATORS.md, F6): an upgrade of
+/// Governance-critical proposals (sim/abuse/VALIDATORS.md, F6): an upgrade of
 /// a governance key (Validators, Parliament, Citizens, CitizenGroup,
 /// Directory, TernTimelock, TernGovernor, WrappedTern, VoteVerifier,
 /// FeeOracle: the price of every message, audit 6 FO-3), or a param call to

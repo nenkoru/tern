@@ -17,7 +17,7 @@ interface IValidatorCitizens {
 ///
 /// The list changes only by the network's governance (the timelock, whose
 /// only proposer is Parliament: both houses, then the exit window), and only
-/// slowly (docs/abuse/VALIDATORS.md):
+/// slowly (sim/abuse/VALIDATORS.md):
 ///   - a rolling cap: at most max(1, ⌊n0/3⌋) changes (adds + removes) within
 ///     `rules.window`, n0 being the set before that window's changes. A
 ///     faction can't replace a third of the set at once, nor by salami;

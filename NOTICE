@@ -1,8 +1,8 @@
 ternchain (github.com/nenkoru/tern)
 Copyright 2026 the ternchain authors
 
-Licensed under the Apache License, Version 2.0 (see LICENSE; the licence is
-proposed and pending the owner's decision, see LICENSE-DECISION.md).
+Licensed under the Apache License, Version 2.0 (see LICENSE). The gnark-exported
+verifiers and examples/*.sol keep their MIT headers.
 
 This product includes or links third-party software under the licences below.
 
@@ -41,9 +41,8 @@ Vendored Solidity sources (contracts/vendor/, see contracts/vendor/README.md)
   which deploys it as a separate contract on a devnet. We treat the embedded
   EntryPoint bytecode as a separate work aggregated with ternchain ("mere
   aggregation"): its complete source is in contracts/vendor/ under GPL-3.0.
-  Whether to keep embedding it, use the canonical deployed EntryPoint, or
-  switch to an MIT-licensed implementation is an open decision
-  (LICENSE-DECISION.md).
+  Before a mainnet we may switch to the canonical deployed EntryPoint or
+  predeploy it in genesis instead of embedding it.
 
 Cryptographic schemes
 ---------------------

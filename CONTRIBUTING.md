@@ -55,8 +55,7 @@ single-party development setup: never use them for anything of value.
 - Never commit keys, identities (`id/` folders), operator files
   (`*.operator.json`) or binaries. `.gitignore` covers the usual ones.
 - Sign off your commits (Developer Certificate of Origin, `git commit -s`).
-  Whether the project uses the DCO or a CLA is still being decided
-  (LICENSE-DECISION.md).
+  Contributions are accepted under the Apache License 2.0; no CLA.
 
 ## Language
 
