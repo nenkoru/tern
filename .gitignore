@@ -40,3 +40,6 @@ __pycache__/
 *.mov
 demo-output.txt
 .DS_Store
+
+# play: agent identities (private keys) never go to git
+/agent/
