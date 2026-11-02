@@ -14,7 +14,7 @@ From the repository's root:
 go run ./examples/scanner
 ```
 
-The first run reads the network from the block its contracts were deployed in, 10,000 blocks per request (`log_range` in `net.json`), and keeps what it read in your cache directory (`ternscan/`). Later runs read only the new blocks. An interrupted scan goes on where it stopped.
+The first run reads the network from the block its contracts were deployed in, 10,000 blocks per request (`log_range` in `net.json`), and keeps what it read in your cache directory (`ternscan/`). Later runs read only the new blocks. An interrupted scan goes on where it stopped. A request that fails (public RPCs drop one now and then) is tried again a few times; an RPC that keeps failing is replaced by the next one in `net.json` (`rpcs`), which goes on from the last block read. `--rpc URL` uses that one only.
 
 ```text
 scanner [COMMAND] [flags]

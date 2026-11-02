@@ -39,6 +39,7 @@ type Backend interface {
 type Net struct {
 	Network   string            `json:"network"`
 	RPC       string            `json:"rpc"`
+	RPCs      []string          `json:"rpcs"` // the rpc and others for the same chain
 	ChainID   int64             `json:"chain_id"`
 	Contracts map[string]string `json:"contracts"`
 	Block     uint64            `json:"block"`  // the first block with the network's contracts
@@ -235,6 +236,7 @@ type Options struct {
 
 // Update scans from the block after the last one scanned up to the head.
 func (s *State) Update(ctx context.Context, b Backend, n Net, o Options) error {
+	b = retrying{b}
 	sc, err := newScanner(b, n, s)
 	if err != nil {
 		return err
@@ -259,7 +261,7 @@ func (s *State) Update(ctx context.Context, b Backend, n Net, o Options) error {
 		to := min(from+step-1, head)
 		logs, err := sc.logs(ctx, from, to)
 		if err != nil {
-			if step > 100 && retryable(err) {
+			if step > 100 && smaller(err) {
 				step /= 2 // some RPCs refuse wide ranges or many results
 				continue
 			}
@@ -289,14 +291,66 @@ func (s *State) Update(ctx context.Context, b Backend, n Net, o Options) error {
 	return nil
 }
 
-func retryable(err error) bool {
+// retrying: a public RPC drops a request now and then (a TLS handshake that
+// times out, a 502, a rate limit): each call is tried again a few times,
+// waiting longer each time. A refused range comes back at once, for Update
+// to ask for a smaller one.
+type retrying struct{ Backend }
+
+const tries = 4
+
+var backoff = time.Second // the first wait; it doubles (tests shorten it)
+
+func retry[T any](ctx context.Context, f func() (T, error)) (T, error) {
+	var v T
+	var err error
+	for i := range tries {
+		if v, err = f(); err == nil || ctx.Err() != nil || tooWide(err) {
+			return v, err
+		}
+		if i < tries-1 {
+			select {
+			case <-ctx.Done():
+				return v, ctx.Err()
+			case <-time.After(backoff << i):
+			}
+		}
+	}
+	return v, err
+}
+
+func (r retrying) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
+	return retry(ctx, func() ([]types.Log, error) { return r.Backend.FilterLogs(ctx, q) })
+}
+
+func (r retrying) BlockNumber(ctx context.Context) (uint64, error) {
+	return retry(ctx, func() (uint64, error) { return r.Backend.BlockNumber(ctx) })
+}
+
+func (r retrying) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
+	return retry(ctx, func() (*types.Header, error) { return r.Backend.HeaderByNumber(ctx, n) })
+}
+
+func (r retrying) CallContract(ctx context.Context, msg ethereum.CallMsg, block *big.Int) ([]byte, error) {
+	return retry(ctx, func() ([]byte, error) { return r.Backend.CallContract(ctx, msg, block) })
+}
+
+// tooWide: the RPC refused the range or the number of results.
+func tooWide(err error) bool {
 	m := strings.ToLower(err.Error())
-	for _, w := range []string{"range", "limit", "too many", "exceed", "timeout", "429", "10000 results"} {
+	for _, w := range []string{"block range", "range is too", "range too", "too many", "exceed", "10000 results", "limit"} {
 		if strings.Contains(m, w) {
 			return true
 		}
 	}
 	return false
+}
+
+// smaller: after the retries, a range worth asking for in halves (refused
+// as too wide, or timing out under the load of a wide one).
+func smaller(err error) bool {
+	m := strings.ToLower(err.Error())
+	return tooWide(err) || strings.Contains(m, "timeout") || strings.Contains(m, "429")
 }
 
 // ---- the scanner: one pass over a range of blocks

@@ -11,9 +11,11 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -152,7 +154,7 @@ func run(o opts, w io.Writer) error {
 		return err
 	}
 	if o.rpc != "" {
-		n.RPC = o.rpc
+		n.RPC, n.RPCs = o.rpc, nil // that one only
 	}
 	dir := o.cache
 	if dir == "" {
@@ -183,11 +185,43 @@ func run(o opts, w io.Writer) error {
 	return show(w, s, o)
 }
 
+// update reads new blocks through the network's rpc, and through its other
+// rpcs (net.json "rpcs") in turn when one keeps failing. Each range read is
+// saved, so the next rpc goes on where the last one stopped.
 func update(ctx context.Context, s *scan.State, n scan.Net, cache string, confirmations uint64) error {
-	if n.RPC == "" {
+	var urls []string
+	for _, u := range append([]string{n.RPC}, n.RPCs...) {
+		if u != "" && !slices.Contains(urls, u) {
+			urls = append(urls, u)
+		}
+	}
+	if len(urls) == 0 {
 		return fmt.Errorf("the network file names no rpc: pass --rpc")
 	}
-	c, err := ethclient.DialContext(ctx, n.RPC)
+	var err error
+	for i, u := range urls {
+		if err = updateFrom(ctx, s, n, u, cache, confirmations); err == nil || ctx.Err() != nil {
+			break
+		}
+		if i < len(urls)-1 {
+			fmt.Fprintf(os.Stderr, "scanner: %s: %v; trying %s\n", host(u), err, host(urls[i+1]))
+		}
+	}
+	if ctx.Err() != nil {
+		return fmt.Errorf("interrupted at block %d: the next run goes on from there", s.ToBlock)
+	}
+	return err
+}
+
+func host(u string) string {
+	if p, err := url.Parse(u); err == nil && p.Host != "" {
+		return p.Host
+	}
+	return u
+}
+
+func updateFrom(ctx context.Context, s *scan.State, n scan.Net, rpc, cache string, confirmations uint64) error {
+	c, err := ethclient.DialContext(ctx, rpc)
 	if err != nil {
 		return err
 	}
@@ -203,9 +237,6 @@ func update(ctx context.Context, s *scan.State, n scan.Net, cache string, confir
 		}})
 	if shown {
 		fmt.Fprintln(os.Stderr)
-	}
-	if ctx.Err() != nil {
-		return fmt.Errorf("interrupted at block %d: the next run goes on from there", s.ToBlock)
 	}
 	return err
 }
