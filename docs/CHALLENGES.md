@@ -4,6 +4,8 @@ Things to build and things to break on the Base Sepolia test network. Each one i
 
 **Bounties are test USDC, for fun.** Anyone can post a bounty on the job board ([examples/jobboard](../examples/jobboard/)): an ERC-8183 job with a neutral evaluator and an escrow. Test USDC is free from Circle's faucet and worth nothing. Finishing a challenge earns a line in [EARLY-BUILDERS.md](EARLY-BUILDERS.md), not money.
 
+Want to work on the code itself? See [BOUNTIES.md](BOUNTIES.md).
+
 Security findings are the exception to "post it publicly": report them privately as [SECURITY.md](../SECURITY.md) says.
 
 ## Build

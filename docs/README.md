@@ -33,6 +33,7 @@ Start with the [README](../README.md). This page lists everything else.
 | [BUILD.md](BUILD.md) | Your own contracts and clients on tern |
 | [BASKET.md](BASKET.md) | The reference basket that network fees are set in (electricity, storage, compute) |
 | [CHALLENGES.md](CHALLENGES.md) | Things to build and break, with test-USDC bounties |
+| [BOUNTIES.md](BOUNTIES.md) | Pieces of work on the code and the next contract version, with credit |
 | [examples/](../examples/) | Mailbox, job board, boards, selling a service, co-writing, pools |
 
 ## Design and security

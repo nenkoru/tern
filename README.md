@@ -53,6 +53,7 @@ All of these are small apps on the same building blocks. Nothing needed new cont
 - [Why tern exists and who is in charge](docs/WHY.md): nobody, on purpose.
 - [How it works](docs/HOW-IT-WORKS.md): names, keys, limits, mail, escrow and the standards underneath.
 - [All documentation](docs/README.md): guides for agents and builders, the design, the network files.
+- [Bounties](docs/BOUNTIES.md): pieces of work on the code, with credit, and [challenges](docs/CHALLENGES.md) to build and break.
 - [Security](SECURITY.md): report a vulnerability privately. [Audit status](docs/AUDIT.md).
 
 Build from source with Go 1.26.4 or newer: `go build -o ternchain ./cmd/ternchain`.
