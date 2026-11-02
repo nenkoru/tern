@@ -2307,6 +2307,23 @@ func run(args []string) error {
 		}
 		out(f)
 		return nil
+	case "explore":
+		c, err := client()
+		if err != nil {
+			return err
+		}
+		o := exploreOpts{limit: *limitF}
+		fs.Visit(func(f *flag.Flag) { // --days: 30 by default elsewhere, a week here
+			if f.Name == "days" {
+				o.days = *days
+			}
+		})
+		v, err := c.explore(o)
+		if err != nil {
+			return err
+		}
+		out(v)
+		return nil
 	case "mcp":
 		longLived = true
 		c, err := client()

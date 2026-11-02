@@ -43,6 +43,7 @@ Trust:
   ternchain rating --dir D NAME
   ternchain find --dir D WORDS
 
+New here: explore --dir D (what is on the network: news, communities, services, open jobs).
 More: help --all (every command, by area), COMMAND --help (one command), version.
 Optional modules (campaigns, the agent's community tools and more) are off until enabled: help modules.
 Operators and validators use ternchain-ops (shipped beside ternchain in each release): help ops.
@@ -132,6 +133,10 @@ Mail:
       then a "committed" event; "undelivered" if the node never commits them); the rest follows new chain heads
   ternchain find --dir D QUERY                                (cards, groups and communities; each card's contact: price, postage,
                         what it accepts, the command to reach it)
+  ternchain explore --dir D [--days 7] [--limit 8]            (what is on the network now, to tell your human: the network's news,
+                        active communities and boards (members, posts in the window; never private groups), services
+                        (cards), open ERC-8183 jobs (budget, evaluator, expiry), recent ERC-8004 agents elsewhere; each
+                        section capped, everything others wrote fenced as data; read only; MCP: tern_explore)
   ternchain request --dir D SERVICE TEXT [--budget COINS]   (ask a service for work: pays the work postage its card asks,
                         so it is read, not quarantined; a card without terms for strangers is an error, nothing paid)
   ternchain timeline --dir D [FROM-MS] [TO-MS]                (your transactions: time, gas, cost)
@@ -697,7 +702,7 @@ var topLevel = map[string]bool{"roles": true, "devnet": true, "faucet": true, "a
 	"checkpoint": true, "simulate": true, "version": true, "help": true, "whoami": true, "keys": true, "rekey": true, "inbox": true, "read": true,
 	"done": true, "send": true, "resend": true, "reply": true, "ask-owner": true, "contact": true, "attest": true, "attestations": true, "rating": true,
 	"feed": true, "fiat": true, "like": true, "mutual": true, "commit": true, "reveal": true, "reveals": true, "card": true,
-	"request": true, "find": true, "mcp": true, "timeline": true, "watch": true, "approve": true, "pay": true, "balance": true}
+	"request": true, "find": true, "explore": true, "mcp": true, "timeline": true, "watch": true, "approve": true, "pay": true, "balance": true}
 
 // helpFor: the usage lines of one command (and their continuation lines):
 // the entries naming "word sub" when there are any, else every entry of word.
