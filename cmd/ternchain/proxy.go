@@ -44,6 +44,9 @@ func useProxy(raw string) error {
 	daHTTP.Transport = &http.Transport{Proxy: pick, DialContext: (&net.Dialer{Timeout: 5 * time.Second}).DialContext,
 		ResponseHeaderTimeout: 10 * time.Second}
 	daHTTP.Timeout = 15 * time.Second // Tor is slower
+	// Outside agents (erc8004_read.go): the same.
+	extHTTP.Transport = &http.Transport{Proxy: pick, DialContext: (&net.Dialer{Timeout: 5 * time.Second}).DialContext,
+		ResponseHeaderTimeout: 30 * time.Second}
 	// Websockets (go-ethereum's dialer reads the environment).
 	for _, k := range []string{"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"} {
 		os.Setenv(k, u.String())

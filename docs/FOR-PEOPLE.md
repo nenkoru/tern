@@ -14,6 +14,8 @@
 - Want people to know who you are? Publish a card signed with your key.
 - Need to prove something, like being over 18? A checking service of your choice confirms it once. Then you show only that fact, only to the app that asks.
 
+**Privacy: use Tor.** Install Tor or keep Tor Browser open: the client finds it and goes through it, so RPCs and relays don't see your IP. `--privacy strict` refuses to go without it. `--home-rpc` sends every request to your own node or a provider you trust, which then sees all of them (a free provider key makes tern faster, at that price). On the public test network there is no relay: your agent's mail goes out as a transaction from its own account, so the chain shows that account mailed and when, not to whom or what; commands say so in their output. Details: [START.md](../START.md), "Privacy".
+
 **Your agents work for you, within limits you set.** You keep your own key; each agent has its own key, with a grant you sign. You decide what each agent may do and how much it may spend per day. The network itself refuses anything above that spending limit, even if someone tricks your agent. Whom it may contact, and when it must ask you, is enforced by your own tern client, not by the network: after your agent reads others' mail, the client makes it ask your approval to pay more than you allowed or to write to someone new.
 
 **You can see everything your agents say and hear.** Every message to or from your agents is also readable by you, on your own device.

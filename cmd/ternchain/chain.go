@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -862,31 +863,21 @@ func (ch *Chain) refresh() ([]Primitive, error) {
 	if _, ok := ch.c["Directory"]; !ok {
 		return nil, nil
 	}
-	out, err := ch.call("Directory", "keys")
-	if err != nil {
-		return nil, err
-	}
-	var ps []Primitive
-	for _, k := range out[0].([]string) {
-		a, err := ch.call("Directory", "current", k)
-		if err != nil {
+	raw, ok := ch.directoryKept()
+	if !ok {
+		var err error
+		if raw, err = ch.readDirectory(); err != nil {
 			return nil, err
 		}
-		addr := a[0].(common.Address)
-		sp, _ := ch.call("Directory", "specOf", k)
-		su, _ := ch.call("Directory", "specURIOf", k)
-		p := Primitive{Key: k, Address: addr.Hex()}
-		if len(sp) > 0 && sp[0].([32]byte) != [32]byte{} {
-			p.Spec = common.Hash(sp[0].([32]byte)).Hex()
-		}
-		if len(su) > 0 {
-			p.SpecURI = su[0].(string)
-		}
-		if parsed, ok := ch.abis[k]; ok {
+	}
+	var ps []Primitive
+	for _, p := range raw {
+		addr := common.HexToAddress(p.Address)
+		if parsed, ok := ch.abis[p.Key]; ok {
 			p.Known = true
-			if using, had := ch.dep.Contracts[k]; !had {
-				ch.c[k] = bind.NewBoundContract(addr, parsed, ch.b, ch.b, ch.b)
-				ch.dep.Contracts[k] = addr.Hex()
+			if using, had := ch.dep.Contracts[p.Key]; !had {
+				ch.c[p.Key] = bind.NewBoundContract(addr, parsed, ch.b, ch.b, ch.b)
+				ch.dep.Contracts[p.Key] = addr.Hex()
 			} else if !strings.EqualFold(using, addr.Hex()) {
 				p.Using = using
 			}
@@ -897,6 +888,65 @@ func (ch *Chain) refresh() ([]Primitive, error) {
 		ch.dep.Schema = schemaUID(claimSchema).Hex()
 	}
 	return ps, nil
+}
+
+// readDirectory: the Directory's table from the chain (1 + 3 calls a key),
+// kept for the next run with the block it was read at (directoryKept).
+func (ch *Chain) readDirectory() ([]Primitive, error) {
+	at, _ := ch.b.BlockNumber(context.Background())
+	out, err := ch.call("Directory", "keys")
+	if err != nil {
+		return nil, err
+	}
+	var ps []Primitive
+	for _, k := range out[0].([]string) {
+		a, err := ch.call("Directory", "current", k)
+		if err != nil {
+			return nil, err
+		}
+		sp, _ := ch.call("Directory", "specOf", k)
+		su, _ := ch.call("Directory", "specURIOf", k)
+		p := Primitive{Key: k, Address: a[0].(common.Address).Hex()}
+		if len(sp) > 0 && sp[0].([32]byte) != [32]byte{} {
+			p.Spec = common.Hash(sp[0].([32]byte)).Hex()
+		}
+		if len(su) > 0 {
+			p.SpecURI = su[0].(string)
+		}
+		ps = append(ps, p)
+	}
+	if d := mirrorDir(); at > 0 && cacheReady(d) {
+		writeJSON(filepath.Join(d, "directory.json"), directoryFile{ch.c["Directory"].Address().Hex(), at, ps})
+	}
+	return ps, nil
+}
+
+// directoryFile: the Directory's table as read at a block. Every change to
+// it is a Set event; none since that block: still the table (the event comes
+// from the kept history, so this costs no call of its own).
+type directoryFile struct {
+	Directory string      `json:"directory"`
+	Block     uint64      `json:"block"`
+	Keys      []Primitive `json:"keys"`
+}
+
+func (ch *Chain) directoryKept() ([]Primitive, bool) {
+	d := mirrorDir()
+	if !cacheReady(d) {
+		return nil, false
+	}
+	var f directoryFile
+	dir := ch.c["Directory"].Address()
+	if readJSON(filepath.Join(d, "directory.json"), &f) != nil || f.Directory != dir.Hex() || len(f.Keys) == 0 {
+		return nil, false
+	}
+	ev := ch.abis["Directory"].Events["Set"]
+	logs, err := ch.b.FilterLogs(context.Background(), ethereum.FilterQuery{FromBlock: new(big.Int).SetUint64(f.Block), Addresses: []common.Address{dir},
+		Topics: [][]common.Hash{{ev.ID}}})
+	if err != nil || len(logs) > 0 {
+		return nil, false
+	}
+	return f.Keys, true
 }
 
 func (ch *Chain) opts(key *ecdsa.PrivateKey, value *big.Int) (*bind.TransactOpts, error) {
@@ -1324,6 +1374,10 @@ func (ch *Chain) blockTime(n uint64) (int64, error) {
 		if t, ok := ch.times.Load(n); ok {
 			return t.(int64), nil
 		}
+		if t, ok := keptTime(n); ok { // an earlier run's (logcache.go)
+			ch.times.Store(n, t)
+			return t, nil
+		}
 	}
 	h, err := ch.b.HeaderByNumber(context.Background(), new(big.Int).SetUint64(n))
 	if err != nil {
@@ -1331,6 +1385,7 @@ func (ch *Chain) blockTime(n uint64) (int64, error) {
 	}
 	if perfFixes { // a block's time is fixed once it is made (a reorg could change it: only an item's displayed time)
 		ch.times.Store(n, int64(h.Time))
+		keepTime(n, int64(h.Time))
 	}
 	return int64(h.Time), nil
 }

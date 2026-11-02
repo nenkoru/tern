@@ -275,6 +275,12 @@ func (c *Client) x402Within(token common.Address, amount *big.Int) error {
 // x402Pay: GET (or POST body) url; if it asks for an x402 payment, pay it
 // (within the owner's rules) and ask again. The answer and what was paid.
 func (c *Client) x402Pay(rawURL, method string, body []byte, max *big.Int) (*http.Response, []byte, map[string]any, error) {
+	return c.x402PayWith(&http.Client{Timeout: 60 * time.Second}, rawURL, method, body, nil, max)
+}
+
+// x402PayWith: x402Pay through hc, with these request headers (an A2A call:
+// a guarded client, a JSON body).
+func (c *Client) x402PayWith(hc *http.Client, rawURL, method string, body []byte, hdr map[string]string, max *big.Int) (*http.Response, []byte, map[string]any, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		return nil, nil, nil, fmt.Errorf("x402 pay: an http(s) URL, not %q", rawURL)
@@ -288,10 +294,12 @@ func (c *Client) x402Pay(rawURL, method string, body []byte, max *big.Int) (*htt
 		if err != nil {
 			return nil, nil, err
 		}
-		for k, v := range h {
-			req.Header.Set(k, v)
+		for _, m := range []map[string]string{hdr, h} {
+			for k, v := range m {
+				req.Header.Set(k, v)
+			}
 		}
-		resp, err := (&http.Client{Timeout: 60 * time.Second}).Do(req)
+		resp, err := hc.Do(req)
 		if err != nil {
 			return nil, nil, err
 		}

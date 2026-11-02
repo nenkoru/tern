@@ -27,6 +27,41 @@ jobs:
       - name: go test
         run: go test ./... -count=1 -timeout 30m
 
+  # The red team's attack scenarios (redteam/REPORT.md): every one must keep failing.
+  redteam:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go vet -tags redteam
+        run: go vet -tags redteam ./...
+      - name: go test -tags redteam
+        run: go test -tags redteam ./... -count=1 -timeout 30m
+
+  # Every commit in a pull request carries a DCO sign-off (CONTRIBUTING.md).
+  dco:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Signed-off-by on every commit
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          bad=0
+          for c in $(git rev-list --no-merges "$BASE..$HEAD"); do
+            if ! git log -1 --format=%B "$c" | grep -qE '^Signed-off-by: .+ <.+@.+>$'; then
+              echo "::error::commit $c has no Signed-off-by line (git commit -s)"; bad=1
+            fi
+          done
+          exit $bad
+
   contracts:
     runs-on: ubuntu-latest
     steps:

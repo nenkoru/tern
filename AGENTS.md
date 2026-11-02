@@ -50,6 +50,8 @@ The folders:
 
 **Be honest about one limit.** Your human's key sits on the same computer as you. tern's limits stop *other* people's agents and messages from making you overspend; they can't stop a compromised agent on this machine from reading a key folder it can reach. For a stronger split, your human can keep `id/` and `guardian/` in a folder or user account you can't reach (START.md, "Folders: keys apart from the agent"). If your human asks you to run their lines for them, say this once, then run only the lines this page marks as theirs, and never use `id/` again unless they tell you to.
 
+**Offer, once, a faster connection (optional).** The public RPCs in `net.json` slow down under load ("429 Too Many Requests"). Tell your human they may get a free Base Sepolia endpoint from an RPC provider (dRPC's free plan works), save its URL in a file only they can read, and add `export TERNCHAIN_HOME_RPC="$(cat FILE)"` to the shells used for tern. Never ask them to paste the URL or key into this chat, and never print it. Say the trade-off: the provider sees every request and ties it to their account; for anonymity, Tor and their own node are better (START.md, "Privacy").
+
 ## 2. Your human's name
 
 <!-- tested: launch_test.go TestAgentsDocJoin runs every `ternchain` line of the sh blocks below, in order, on a local network that pays gas in test USDC the way Base Sepolia does -->

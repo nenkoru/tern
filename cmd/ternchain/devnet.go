@@ -679,6 +679,9 @@ func connect(netPath string) (*Chain, *DevnetFile, error) {
 	if err := zkUseNet(netPath, f.Deployment); err != nil { // the zk keys net.json names (ceremony.go)
 		return nil, nil, err
 	}
+	if f.LogRange > 0 && !localURL(ch.dep.RPC) { // the network's history, kept on this machine (logcache.go)
+		setSharedCache(ch, f.Network)
+	}
 	if _, err := ch.refresh(); err != nil {
 		if strings.Contains(err.Error(), "no contract code") {
 			return nil, nil, fmt.Errorf("the network at %s doesn't have this net.json's contracts: it was reset, or the file is for another network. "+
@@ -698,6 +701,10 @@ func dialNet(f *DevnetFile, netPath string) (*Chain, error) {
 		if u = strings.TrimSpace(u); u != "" && !slices.Contains(urls, u) {
 			urls = append(urls, u)
 		}
+	}
+	historyRPCs, historyNet, historyDone, historyVia, historyHost, historyLearned = nil, f, false, nil, "", false
+	if homeRPC != "" && !slices.Contains(urls, homeRPC) {
+		historyRPCs = urls // a narrow home RPC's history reads (historyFor)
 	}
 	urls = rpcOrder(urls) // shuffled, or the home RPC alone (netprivacy.go)
 	splitVia = nil
@@ -741,7 +748,7 @@ func dialOne(f *DevnetFile, netPath, u string) (*Chain, error) {
 	dep.RPC = u
 	var b Backend = cl
 	if f.LogRange > 0 {
-		b = newRangedClient(cl, f.LogRange)
+		b = newRangedClient(cl, f.LogRange, u)
 	}
 	if splitVia != nil {
 		b = splitLogs{b, splitVia}

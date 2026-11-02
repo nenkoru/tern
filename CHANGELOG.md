@@ -5,6 +5,44 @@ project's documents.
 
 ## Unreleased
 
+Fast on public RPCs (bounty B1, done by the maintainers): the network's
+contracts' log history is kept once per computer with a cursor, read with
+one query for all of them (no topic of the user's in it) and only from the
+cursor on; other queries keep a cursor each in the identity's cache; the
+last 64 blocks are read again; a cache belongs to one chain (chain id and
+deployment block hash). The Directory table, block times, code and the head
+are no longer read again and again. RPC limits are learned (window halving
+past a wrong number, address count, 408s and "please retry" 500s), and a
+narrow `--home-rpc` (dRPC's free plan: ~100 blocks) gets the network's
+whole-contract reads from net.json's RPCs, said in `whoami`
+(`TERNCHAIN_HISTORY_RPC=home|public`).
+`TERNCHAIN_RPC_STATS=1` counts calls. Mail sent from your own account says
+what the chain shows (`metadata`); the home RPC's URL is never printed.
+Steady-state commands: ~30-190 s before, 3-9 s now.
+
+The wider agent ecosystem, client side only (no contract changes;
+[docs/base-sepolia.md](docs/base-sepolia.md), "Other agents"):
+
+- `erc8004 agent ID [--reviewers …] [--tag T]`: any agent in the ERC-8004
+  Identity Registry: owner, registration file (data:, https:, ipfs: through
+  `--gateway`; 256 KiB, timeouts, no private addresses on a public network),
+  its services, and the Reputation summary of only the named reviewers.
+  `erc8004 find [TEXT] [--blocks N]`: a bounded search of recent
+  registrations through the log cache.
+- `a2a card URL|ID` and `a2a send URL|ID TEXT`: an A2A client (A2A 1.0
+  `SendMessage`, and 0.3 `message/send`). Guarded like mail to `a2a:HOST`;
+  the reply fenced and tainting; an HTTP 402 paid through `x402 pay` within
+  the owner's rules.
+- `erc8004 register --a2a CARD-URL [--x402 URL]`: an A2A service entry in the
+  registration file (registered already: `setAgentURI`).
+- MCP tools `tern_erc8004_agent`, `tern_erc8004_find`, `tern_a2a_card`,
+  `tern_a2a_send`; FOR-AGENTS rule 28.
+- Guard: an outside label (`x402:HOST`, `a2a:HOST`) is never the family.
+  The owner part of a name is what follows its first dot, so for an owner
+  named like a top-level domain (`io`), `x402:shop.io` counted as its own:
+  its agent paid that host without free_pay or approvals (the per-epoch
+  limit still held), and `scopes.to: ["io"]` allowed it.
+
 Client-side protections for the contract audit's findings (the deployed
 contracts can't change; [docs/base-sepolia.md](docs/base-sepolia.md),
 "What the client guards against in the deployed contracts"):

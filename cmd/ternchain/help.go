@@ -260,6 +260,17 @@ Trust: claims, reviews, ratings, credentials, commitments:
   ternchain erc8004 register --dir D [DESCRIPTION]   (this name as an ERC-8004 agent: Identity Registry, agent id in erc8004.json)
   ternchain erc8004 feedback --dir D NAME LOCK SCORE TEXT   (a paid deal's review as ERC-8004 Reputation feedback, tag tern-deal)
   ternchain erc8004 show --dir D NAME REVIEWER…      (the registry's mean of those reviewers' tern-deal feedback for NAME)
+  ternchain erc8004 agent --dir D ID [--reviewers NAME,0x…] [--tag TAG] [--gateway URL]   (any ERC-8004 agent: owner,
+                        registration file (data:, https:, ipfs: via the gateway), its services (A2A, MCP, x402, ternchain),
+                        and the Reputation summary of only the reviewers you name; what it says comes fenced)
+  ternchain erc8004 find --dir D [TEXT] [--blocks N] [--limit N]   (agents registered in the last N blocks (500000) whose
+                        URI or on-chain registration contains TEXT; read one with erc8004 agent)
+  ternchain erc8004 register --dir D [DESCRIPTION] --a2a CARD-URL [--x402 URL]   (name your A2A agent and x402 endpoint
+                        in your registration file; registered already: the file is replaced, setAgentURI)
+  ternchain a2a card --dir D URL|ERC8004-ID          (an A2A agent's Agent Card, checked: name, skills, JSON-RPC endpoint)
+  ternchain a2a send --dir D URL|ERC8004-ID TEXT… [--context ID] [--task ID] [--max-pay AMOUNT]   (one A2A message
+                        (1.0 SendMessage, or 0.3 message/send); guarded like mail to a2a:HOST; the reply comes fenced;
+                        an HTTP 402 is paid through x402 pay, within your owner's rules)
   ternchain x402 pay --dir D URL [--max-pay AMOUNT] [--out FILE]   (an x402 endpoint's price in USDC, signed by the agent's
                         key: within its scopes.to (x402:HOST), free_pay or the owner's approval, and its per-epoch limit)
   ternchain x402 fund --dir D AGENT AMOUNT          (the owner moves USDC from its bank to the agent's key, for x402)

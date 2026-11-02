@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -47,14 +48,28 @@ func (ch *Chain) erc8004() bool {
 	return ch.has("ERC8004IdentityRegistry") && ch.has("ERC8004ReputationRegistry")
 }
 
+// erc8004Services: what the registration names besides ternchain: an A2A
+// agent (its Agent Card) and an x402 endpoint.
+type erc8004Services struct {
+	A2A, A2AVersion string // the card's URL; its A2A version ("1.0.0", "0.3.0")
+	X402            string // an x402 endpoint (x402 serve)
+}
+
 // erc8004Registration: the agent's registration file (ERC-8004
 // #registration-v1), carried in a data: URI so nothing off chain is needed.
-func (c *Client) erc8004Registration(desc string, x402 bool) string {
+func (c *Client) erc8004Registration(desc string, x402 bool, more erc8004Services) string {
 	type service struct {
 		Name     string `json:"name"`
 		Endpoint string `json:"endpoint"`
-		Version  string `json:"version"`
-		Address  string `json:"address"`
+		Version  string `json:"version,omitempty"`
+		Address  string `json:"address,omitempty"`
+	}
+	svcs := []service{{"ternchain", fmt.Sprintf("tern:%s@eip155:%d", c.f.Name, c.ch.chainID.Int64()), "1", c.me().Hex()}}
+	if more.A2A != "" {
+		svcs = append(svcs, service{Name: "A2A", Endpoint: more.A2A, Version: more.A2AVersion})
+	}
+	if more.X402 != "" {
+		svcs, x402 = append(svcs, service{Name: "x402", Endpoint: more.X402, Version: "2"}), true
 	}
 	reg := struct { // the standard's field names
 		Type           string    `json:"type"`
@@ -64,8 +79,7 @@ func (c *Client) erc8004Registration(desc string, x402 bool) string {
 		X402Support    bool      `json:"x402Support"`
 		Active         bool      `json:"active"`
 		SupportedTrust []string  `json:"supportedTrust"`
-	}{"https://eips.ethereum.org/EIPS/eip-8004#registration-v1", c.f.Name, desc,
-		[]service{{"ternchain", fmt.Sprintf("tern:%s@eip155:%d", c.f.Name, c.ch.chainID.Int64()), "1", c.me().Hex()}}, x402, true, []string{"reputation"}}
+	}{"https://eips.ethereum.org/EIPS/eip-8004#registration-v1", c.f.Name, desc, svcs, x402, true, []string{"reputation"}}
 	b, _ := json.Marshal(reg)
 	return "data:application/json;base64," + base64.StdEncoding.EncodeToString(b)
 }
@@ -73,12 +87,55 @@ func (c *Client) erc8004Registration(desc string, x402 bool) string {
 // erc8004Register: this identity (an owner or an agent) as an ERC-8004
 // agent; its ternchain name goes in the metadata ("tern.name").
 func (c *Client) erc8004Register(desc string, x402 bool) (map[string]any, error) {
+	return c.erc8004RegisterWith(desc, x402, erc8004Services{})
+}
+
+// erc8004RegisterWith: erc8004Register naming more services. An identity
+// registered already gets its registration file replaced (setAgentURI),
+// its description kept unless a new one is given.
+func (c *Client) erc8004RegisterWith(desc string, x402 bool, more erc8004Services) (map[string]any, error) {
 	if !c.ch.erc8004() {
 		return nil, errors.New("no ERC-8004 registries on this network (net.json contracts ERC8004IdentityRegistry, ERC8004ReputationRegistry)")
 	}
+	if more.A2A != "" { // only an Agent Card that answers: a registration pointing nowhere misleads every reader
+		k, cu, _, err := a2aFetchCard(more.A2A)
+		if err != nil {
+			return nil, fmt.Errorf("--a2a: %w (start your A2A server first)", err)
+		}
+		e, _ := k.endpoint()
+		more.A2A, more.A2AVersion = cu, e.Version+".0"
+	}
+	if more.X402 != "" {
+		if u, err := url.Parse(more.X402); err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+			return nil, fmt.Errorf("--x402: an http(s) URL, not %q", more.X402)
+		}
+	}
 	var have ERC8004File
 	if readJSON(c.erc8004Path(), &have) == nil && have.AgentID != "" {
-		return map[string]any{"agent_id": have.AgentID, "registry": have.Registry, "done": "registered already"}, nil
+		if more == (erc8004Services{}) {
+			return map[string]any{"agent_id": have.AgentID, "registry": have.Registry, "done": "registered already"}, nil
+		}
+		id, _ := new(big.Int).SetString(have.AgentID, 10)
+		if id == nil {
+			return nil, fmt.Errorf("%s: bad agent id %q", c.erc8004Path(), have.AgentID)
+		}
+		if desc == "" { // keep what the registration said
+			if _, _, reg, _, err := c.erc8004Read(id); err == nil && reg != nil {
+				desc = reg.Description
+			}
+		}
+		rc, err := c.ch.send(c.key, nil, "ERC8004IdentityRegistry", "setAgentURI", id, c.erc8004Registration(desc, x402, more))
+		if err != nil {
+			return nil, fmt.Errorf("ERC-8004 setAgentURI: %w", err)
+		}
+		r := map[string]any{"agent_id": have.AgentID, "registry": have.Registry, "updated": "registration file", "tx": rc.TxHash.Hex()}
+		if more.A2A != "" {
+			r["a2a"] = more.A2A
+		}
+		if more.X402 != "" {
+			r["x402"] = more.X402
+		}
+		return r, nil
 	}
 	reg := c.ch.abis["ERC8004IdentityRegistry"]
 	method := ""
@@ -91,7 +148,7 @@ func (c *Client) erc8004Register(desc string, x402 bool) (map[string]any, error)
 		MetadataKey   string
 		MetadataValue []byte
 	}
-	uri, md := c.erc8004Registration(desc, x402), []entry{{"tern.name", []byte(c.f.Name)}}
+	uri, md := c.erc8004Registration(desc, x402, more), []entry{{"tern.name", []byte(c.f.Name)}}
 	var rc *types.Receipt
 	var err error
 	if c.f.Account != "" && c.ch.has("ERC8004Registrar") {

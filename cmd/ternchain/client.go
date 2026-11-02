@@ -856,17 +856,25 @@ func (c *Client) post(es []Envelope) error {
 	if err != nil {
 		return err
 	}
-	if c.ch.has("InboxForwarder") { // the public profile: the fee's floor paid by the forwarder; the sender pays its gas only
+	switch {
+	case c.ch.has("InboxForwarder"): // the public profile: the fee's floor paid by the forwarder; the sender pays its gas only
 		_, err = c.ch.send(c.key, nil, "InboxForwarder", "post", encodeBatch(es), big.NewInt(int64(len(es))))
-		return err
-	}
-	if c.f.Account != "" { // a smart account: the fee comes from the Bank, within an agent's limit
+	case c.f.Account != "": // a smart account: the fee comes from the Bank, within an agent's limit
 		_, err = c.ch.send(c.key, nil, "Inbox", "postPaidUpTo", c.id(), encodeBatch(es), big.NewInt(int64(len(es))), total) // at most 1.5x today's fee
-		return err
+	default:
+		_, err = c.ch.send(c.key, total, "Inbox", "post", encodeBatch(es), big.NewInt(int64(len(es))))
 	}
-	_, err = c.ch.send(c.key, total, "Inbox", "post", encodeBatch(es), big.NewInt(int64(len(es))))
+	if err == nil {
+		postedFromOwnAccount = true // said once in the command's output (out)
+	}
 	return err
 }
+
+// postedFromOwnAccount: this command put mail on chain as a transaction of
+// the user's own account (no relay): its output says what that shows.
+var postedFromOwnAccount bool
+
+const ownAccountNote = "sent from your account: the chain shows this account mailed at this time, not to whom or what"
 
 func (c *Client) send(o SendOpts) (string, error) {
 	if o.Intent == "" {

@@ -244,6 +244,9 @@ func (c *Client) scopes() (agentScopes, error) {
 }
 
 func (c *Client) family(name string) bool {
+	if strings.Contains(name, ":") { // a label for outside the network (x402:HOST, a2a:HOST): ownerName("x402:shop.io") is "io", an owner's name
+		return false
+	}
 	return name == c.f.Name || name == c.f.Owner || ownerName(name) == c.f.Owner
 }
 
@@ -290,7 +293,7 @@ func (s agentScopes) allows(to string) bool {
 		return true
 	}
 	for _, t := range s.To {
-		if t == to || t == ownerName(to) {
+		if t == to || t == ownerName(to) && !strings.Contains(to, ":") { // a label (x402:HOST) only by itself
 			return true
 		}
 	}

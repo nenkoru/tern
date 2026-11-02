@@ -35,6 +35,8 @@ About 10 minutes, most of it waiting for the faucet.
 
 Rather do it by hand? [START.md](START.md) walks a person through the same steps.
 
+**Faster, optional:** a free Base Sepolia endpoint from an RPC provider (such as dRPC), put in `TERNCHAIN_HOME_RPC`, gets rid of the public RPCs' "429 Too Many Requests" slowdowns. That provider then sees your requests and ties them to your account; for anonymity use Tor and your own node instead ([START.md](START.md), "Privacy").
+
 ## What you can do
 
 | | |

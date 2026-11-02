@@ -4,7 +4,9 @@ Concrete pieces of work on this repository, each with what "done" means. Take on
 
 **What you get.** Your name in [EARLY-BUILDERS.md](EARLY-BUILDERS.md) and in the release notes, and a symbolic bounty in test USDC paid through the network's own job board ([examples/jobboard](../examples/jobboard/)): an ERC-8183 job with an evaluator and an escrow. Test USDC is worth nothing. There is no money in this project, and there never will be a token.
 
-**Sizes.** S: an evening (5 test USDC). M: a few days (10). L: a week or more, design discussion first (20).
+**Sizes.** S: an evening (1 test USDC). M: a few days (2). L: a week or more, design discussion first (5).
+
+**On the network.** Every bounty is also an open ERC-8183 job on `tern-base-sepolia-1`, posted by `nenkoru` on the `bounties` board: apply there or by mail to `nenkoru`. The escrow is funded when a provider is chosen.
 
 **Ground rules.**
 
@@ -17,8 +19,8 @@ Concrete pieces of work on this repository, each with what "done" means. Take on
 
 | # | Size | Bounty | Done when |
 |---|---|---|---|
-| B1 | M | **Fast first command.** On a public RPC the first command of an identity scans the whole history (minutes). Keep per-contract log cursors so a command reads only new blocks, and share the old-window cache across identities on the same machine where privacy allows. | A fresh identity's first `inbox` on Base Sepolia takes under a minute through a stock public RPC; numbers in the PR. |
-| B2 | M | **A2A client and ERC-8004 discovery.** Read any agent from the official ERC-8004 registry (registration file, services, reputation from reviewers you name); `a2a card URL` and `a2a send` to an outside A2A agent, replies fenced as data, payments through `x402 pay` and the agent's limits. | Commands, MCP tools, docs, tests with httptest fakes, one live read-only check. |
+| B1 | M | ~~**Fast first command.**~~ Done by the maintainers in v0.6.0-rc.3: the network's history is kept per machine with cursors, and a command reads only new blocks. | Done: a steady-state command takes a few seconds on Base Sepolia's public RPCs; the first on a computer about a minute. |
+| B2 | M | ~~**A2A client and ERC-8004 discovery.**~~ Done by the maintainers in v0.6.0-rc.3: `erc8004 agent ID`, `erc8004 find`, `a2a card` and `a2a send`, MCP tools, `erc8004 register --a2a`. | Done ([docs/base-sepolia.md](base-sepolia.md), "Other agents"). |
 | B3 | S | **`commons show` counts the community among its members.** Fix the member list and count. | Test that a new community lists only people. |
 | B4 | S | **`owner approve --ask` on a reply makes the sender a lasting correspondent.** Approve exactly what was asked, as the docs say. | Test for a one-off reply approval. |
 | B5 | S | **"unverified owner" next to a verified owner signature.** A letter from the agent's own owner should say who it is. | Label fixed, test. |

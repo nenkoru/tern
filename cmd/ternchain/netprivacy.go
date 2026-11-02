@@ -31,18 +31,23 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand/v2"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 const (
@@ -176,6 +181,15 @@ func (s splitLogs) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]ty
 	return s.logs.FilterLogs(ctx, q)
 }
 
+func (s splitLogs) blockHash(ctx context.Context, n uint64) (common.Hash, error) {
+	if h, ok := s.Backend.(interface {
+		blockHash(context.Context, uint64) (common.Hash, error)
+	}); ok {
+		return h.blockHash(ctx, n)
+	}
+	return common.Hash{}, errors.New("no block hashes")
+}
+
 // relayFirst: strict privacy posts through a relay, not from your own account.
 func relayFirst(relay string) error {
 	if strict() && relay == "" {
@@ -192,7 +206,10 @@ func privacyStatus(c *Client) map[string]any {
 		m["proxy"] = "none: RPCs and data nodes see your IP"
 	}
 	if homeRPC != "" {
-		m["home_rpc"] = homeRPC
+		m["home_rpc"] = redactURL(homeRPC)
+	}
+	if historyHost != "" {
+		m["history_rpc"] = historyHost + ": the network's history (whole contracts, nothing of yours in the query); the home RPC answers only narrow log queries (TERNCHAIN_HISTORY_RPC=home)"
 	}
 	if c != nil {
 		m["home_nodes"] = c.homeNodes()
@@ -208,16 +225,100 @@ var splitVia logFilterer
 func dialLogs(f *DevnetFile, u string) logFilterer {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	cl, err := ethclient.DialContext(ctx, u)
+	rc, err := rpc.DialOptions(ctx, u, rpc.WithHTTPClient(&http.Client{Transport: retryRPC{}}))
 	if err != nil {
 		return nil
 	}
+	cl := ethclient.NewClient(rc)
 	if id, err := cl.ChainID(ctx); err != nil || f.ChainID != 0 && id.Int64() != f.ChainID {
 		cl.Close()
 		return nil
 	}
 	if f.LogRange > 0 {
-		return newRangedClient(cl, f.LogRange)
+		return newRangedClient(cl, f.LogRange, u)
 	}
 	return cl
+}
+
+// History reads and a narrow home RPC. A home RPC on a provider's free plan
+// may answer log queries of only ~100 blocks, and slowly (dRPC: seconds a
+// query, 500s and 408s on the network's 40-odd contracts): a cold read of
+// the network's history would be tens of thousands of queries. Then the
+// network's whole-contract reads (nothing of the user's in the query: every
+// client asks the same) go to net.json's RPCs, shuffled, through Tor when
+// there is one; everything else (calls, transactions, topic queries about
+// other contracts) stays on the home RPC.
+//
+//	TERNCHAIN_HISTORY_RPC=home    everything on the home RPC, however narrow
+//	TERNCHAIN_HISTORY_RPC=public  those reads from net.json's RPCs whatever the home's width
+//	(unset)                       public when the home RPC proved narrower than
+//	                              historyMinWindow, except under --privacy strict
+const historyMinWindow = 1000
+
+var (
+	historyRPCs []string // net.json's RPCs (dialNet), when --home-rpc replaced them
+	historyMu   sync.Mutex
+	historyDone bool
+	historyVia  *rangedClient
+	historyNet  *DevnetFile
+	historyHost string // where those reads went this run (whoami)
+	// historyLearned: this run found the home RPC narrow (not limits.json)
+	historyLearned bool
+)
+
+// historyFor: where a whole-contract read goes instead of home (nil: home).
+func historyFor(home rangedClient) *rangedClient {
+	mode := os.Getenv("TERNCHAIN_HISTORY_RPC")
+	if homeRPC == "" || len(historyRPCs) == 0 || mode == "home" ||
+		mode != "public" && (strict() || home.window() >= historyMinWindow) {
+		return nil
+	}
+	historyMu.Lock()
+	defer historyMu.Unlock()
+	if historyDone {
+		return historyVia
+	}
+	historyDone = true
+	if ensurePrivacy(historyRPCs) != nil { // strict and no Tor: stay home
+		return nil
+	}
+	for _, u := range shuffled(historyRPCs) {
+		if l, ok := dialLogs(historyNet, u).(rangedClient); ok {
+			historyVia = &l
+			historyHost = hostOf(u)
+			if historyLearned && os.Getenv("TERNCHAIN_QUIET") == "" { // said when learned; whoami says it every time
+				fmt.Fprintf(os.Stderr, "history: the home RPC answers log queries of %d blocks at most; the network's history (whole contracts, nothing of yours in the query) "+
+					"is read from %s (TERNCHAIN_HISTORY_RPC=home keeps every query on the home RPC)\n", home.window(), hostOf(u))
+			}
+			return historyVia
+		}
+	}
+	return nil
+}
+
+func shuffled(xs []string) []string {
+	out := append([]string(nil), xs...)
+	rand.Shuffle(len(out), func(i, j int) { out[i], out[j] = out[j], out[i] })
+	return out
+}
+
+// redactURL: scheme and host only (a provider's URL carries its API key in
+// the path or the query: never printed).
+func redactURL(u string) string {
+	p, err := url.Parse(u)
+	if err != nil || p.Host == "" {
+		return "(an RPC)"
+	}
+	if p.Path == "" && p.RawQuery == "" && p.User == nil {
+		return u
+	}
+	return p.Scheme + "://" + p.Host + "/…"
+}
+
+// redactHome: s without the home RPC's URL (Go's HTTP errors quote the URL).
+func redactHome(s string) string {
+	if homeRPC == "" {
+		return s
+	}
+	return strings.ReplaceAll(s, homeRPC, redactURL(homeRPC))
 }

@@ -31,8 +31,11 @@ func main() {
 		fmt.Print(coreUsage)
 		os.Exit(2)
 	}
-	if err := run(os.Args[1:]); err != nil && err != errForwarded {
-		out(map[string]any{"error": err.Error() + gasHint(err.Error())})
+	err := run(os.Args[1:])
+	flushKept()
+	printRPCStats()
+	if err != nil && err != errForwarded {
+		out(map[string]any{"error": redactHome(err.Error()) + gasHint(err.Error())})
 		os.Exit(1)
 	}
 }
@@ -42,6 +45,12 @@ func main() {
 var outW io.Writer
 
 func out(v any) {
+	if m, ok := v.(map[string]any); ok && postedFromOwnAccount && m["error"] == nil {
+		if _, has := m["metadata"]; !has {
+			m["metadata"] = ownAccountNote
+		}
+		postedFromOwnAccount = false // once a command
+	}
 	b, _ := json.MarshalIndent(v, "", "  ")
 	w := outW
 	if w == nil {
@@ -112,7 +121,7 @@ func relayPrice(ch *Chain, s string) (*big.Int, error) {
 var testChain *Chain
 
 // Commands with a subcommand ("pot open", "group join").
-var twoWord = map[string]bool{"model": true, "rep": true, "policy": true, "modules": true, "asp": true, "owner": true, "agent": true, "group": true, "bank": true, "escrow": true, "recovery": true, "cond": true, "bond": true, "artifact": true, "sub": true, "gov": true, "lock": true, "channel": true, "private": true, "cred": true, "relay": true, "pot": true, "bounty": true, "revealbond": true, "token": true, "split": true, "item": true, "random": true, "clock": true, "panel": true, "gas": true, "account": true, "da": true, "price": true, "commons": true, "blocklist": true, "htlc": true, "fund": true, "bridge": true, "arbiter": true, "ui": true, "contract": true, "erc8004": true, "job": true, "x402": true, "pins": true}
+var twoWord = map[string]bool{"model": true, "rep": true, "policy": true, "modules": true, "asp": true, "owner": true, "agent": true, "group": true, "bank": true, "escrow": true, "recovery": true, "cond": true, "bond": true, "artifact": true, "sub": true, "gov": true, "lock": true, "channel": true, "private": true, "cred": true, "relay": true, "pot": true, "bounty": true, "revealbond": true, "token": true, "split": true, "item": true, "random": true, "clock": true, "panel": true, "gas": true, "account": true, "da": true, "price": true, "commons": true, "blocklist": true, "htlc": true, "fund": true, "bridge": true, "arbiter": true, "ui": true, "contract": true, "erc8004": true, "job": true, "x402": true, "a2a": true, "pins": true}
 
 func run(args []string) error {
 	cmd := args[0]
@@ -232,6 +241,14 @@ func run(args []string) error {
 	textFile := fs.String("text-file", "", "")
 	maxPayF := fs.String("max-pay", "", "")          // x402 pay: the most it pays for one request
 	facilitatorF := fs.String("facilitator", "", "") // x402 serve: URL, or self
+	a2aF := fs.String("a2a", "", "")                 // erc8004 register: this identity's A2A Agent Card URL
+	x402URLF := fs.String("x402", "", "")            // erc8004 register: its x402 endpoint
+	gatewayF := fs.String("gateway", "", "")         // erc8004 agent: the IPFS gateway for ipfs:// registrations
+	tagF := fs.String("tag", "", "")                 // erc8004 agent: only feedback with this tag1
+	blocksF := fs.Uint64("blocks", 0, "")            // erc8004 find: how many recent blocks to search
+	limitF := fs.Int("limit", 0, "")                 // erc8004 find: the most results
+	contextF := fs.String("context", "", "")         // a2a send: continue this A2A context
+	taskF := fs.String("task", "", "")               // a2a send: continue this A2A task
 	until := fs.String("until", "", "")
 	bondS := fs.String("bond", "", "")
 	termF := fs.Uint64("term", 30*86400, "")
@@ -504,6 +521,9 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
+	if rpcStatsMode == "logs" && ch != nil {
+		rpcStatsName = ch.callName
+	}
 	if *unsafePaymasterF { // checked where it is used: a local devnet only (accounts.go paymasterFundOK)
 		ch.unsafePaymaster = true
 	}
@@ -537,8 +557,8 @@ func run(args []string) error {
 		if !longLived && ch.cacheDir == "" { // the next run of the CLI starts from what this one read
 			ch.cacheDir = filepath.Join(*dir, "cache")
 		}
-		if logCacheDir == "" && !localURL(ch.dep.RPC) { // a local chain may be reset under the same addresses
-			logCacheDir = filepath.Join(*dir, "cache", "logs")
+		if logCacheDir == "" && !localURL(ch.dep.RPC) { // a local chain is quick to read again
+			setLogCache(filepath.Join(*dir, "cache", "logs"), ch)
 		}
 		sd := *stateDirF
 		if *cursorF != "" { // a second reader of this identity (a bridge's watch): its own cursor and state
@@ -1958,15 +1978,38 @@ func run(args []string) error {
 		facts["roles"] = rows
 		out(facts)
 		return nil
-	case "erc8004 register", "erc8004 feedback", "erc8004 show":
+	case "erc8004 register", "erc8004 feedback", "erc8004 show", "erc8004 agent", "erc8004 find":
 		c, err := client()
 		if err != nil {
 			return err
 		}
+		if *gatewayF != "" {
+			ipfsGateway = *gatewayF
+		}
 		var r map[string]any
 		switch cmd {
 		case "erc8004 register":
-			r, err = c.erc8004Register(strings.Join(pos, " "), false)
+			r, err = c.erc8004RegisterWith(strings.Join(pos, " "), false, erc8004Services{A2A: *a2aF, X402: *x402URLF})
+		case "erc8004 agent":
+			if len(pos) < 1 {
+				return errors.New("usage: erc8004 agent ID [--reviewers NAME,0x…] [--tag TAG] [--gateway URL]   (any agent in the ERC-8004 Identity Registry)")
+			}
+			id, err := c.parseERC8004ID(pos[0])
+			if err != nil {
+				return err
+			}
+			var rv []string
+			for _, x := range strings.Split(gf.reviewers, ",") { // --reviewers: whose Reputation feedback counts (names or 0x…)
+				if x = strings.TrimSpace(x); x != "" {
+					rv = append(rv, x)
+				}
+			}
+			r, err = c.erc8004Agent(id, rv, *tagF)
+			if err != nil {
+				return err
+			}
+		case "erc8004 find":
+			r, err = c.erc8004Find(strings.Join(pos, " "), *blocksF, *limitF)
 		case "erc8004 feedback":
 			if len(pos) < 4 {
 				return errors.New("usage: erc8004 feedback NAME LOCK SCORE TEXT   (your review of a paid deal with NAME, as ERC-8004 Reputation feedback)")
@@ -1985,6 +2028,37 @@ func run(args []string) error {
 				return errors.New("usage: erc8004 show NAME REVIEWER…   (the registry's mean of those reviewers' tern-deal feedback)")
 			}
 			r, err = c.erc8004Summary(pos[0], pos[1:])
+		}
+		if err != nil {
+			return err
+		}
+		out(r)
+		return nil
+	case "a2a card", "a2a send":
+		c, err := client()
+		if err != nil {
+			return err
+		}
+		if *gatewayF != "" {
+			ipfsGateway = *gatewayF
+		}
+		var r map[string]any
+		if cmd == "a2a card" {
+			if len(pos) < 1 {
+				return errors.New("usage: a2a card URL|ERC8004-ID   (an A2A agent's Agent Card, checked)")
+			}
+			r, err = c.a2aCardView(pos[0])
+		} else {
+			if len(pos) < 2 {
+				return errors.New("usage: a2a send URL|ERC8004-ID TEXT… [--context ID] [--task ID] [--max-pay AMOUNT]   (one A2A message; the reply comes fenced)")
+			}
+			var max *big.Int
+			if *maxPayF != "" {
+				if max, err = c.parseMoney(*maxPayF); err != nil {
+					return err
+				}
+			}
+			r, err = c.a2aSend(pos[0], strings.Join(pos[1:], " "), *contextF, *taskF, max)
 		}
 		if err != nil {
 			return err
