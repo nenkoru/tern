@@ -1,0 +1,24 @@
+{
+  "schema": "tern.policy/1",
+  "name": "compare-abs",
+  "version": "1.0.0",
+  "line": "compare-abs@1",
+  "description": "Within a tolerance: no entry differs by more than params.tol (rounded measurements, sensor readings, odometers).",
+  "applies_to": "compare",
+  "engine": "tern-expr/1",
+  "inputs": [
+    "pair.has_vec",
+    "pair.max_abs",
+    "pair.same_hash"
+  ],
+  "params": {
+    "tol": 0.01
+  },
+  "rules": {
+    "agree": "pair.same_hash || pair.has_vec && pair.max_abs <= params.tol"
+  },
+  "license": "CC0-1.0",
+  "author": "ternchain",
+  "payee": "ternchain",
+  "files": {}
+}

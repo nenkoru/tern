@@ -1,0 +1,22 @@
+{
+  "schema": "tern.policy/1",
+  "name": "reports-default",
+  "version": "1.0.0",
+  "line": "reports-default@1",
+  "description": "A reporter weighs standing × age × conduct × record (reports.go); a post hides when at least 2 owners reported it and their weight reaches max(1, 0.004 × members) × the author's factor; an author whose conduct penalty reached 9 is hidden until a moderator clears the post.",
+  "applies_to": "reports",
+  "engine": "tern-expr/1",
+  "inputs": ["reporter.citizen", "reporter.age_days", "reporter.penalty", "reporter.record", "record.upheld", "record.dismissed", "record.stale", "community.members", "author.penalty", "author.citizen"],
+  "params": {"min_weight": 1.0, "per_member": 0.004, "min_owners": 2, "conduct_min_members": 3, "hide_at": 9, "reported_at": 5, "record_stale_hours": 24,
+             "ban_penalty": 25, "name_hidden_penalty": 10, "post_hidden_penalty": 5, "reported_penalty": 3},
+  "rules": {
+    "reporter_weight": "(reporter.citizen ? 1 : 0.75) * (0.6 + 0.4 * min(1, reporter.age_days / 30)) * max(0, 1 - reporter.penalty / 50) * reporter.record",
+    "record": "min(2, (1 + 2 * record.upheld) / (1 + record.upheld + 2 * record.dismissed + record.stale / 2))",
+    "threshold": "max(params.min_weight, params.per_member * community.members)",
+    "author_factor": "max(0.05, 1 - author.penalty / 40) * (author.citizen ? 1.25 : 1)"
+  },
+  "license": "CC0-1.0",
+  "author": "ternchain",
+  "payee": "ternchain",
+  "files": {}
+}

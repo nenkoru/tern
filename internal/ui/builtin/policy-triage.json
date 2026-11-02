@@ -1,0 +1,19 @@
+{
+  "schema": "tern.policy/1",
+  "name": "triage-default",
+  "version": "1.0.0",
+  "line": "triage-default@1",
+  "description": "Today's ladder: contacts, then strangers who paid your postage, deliveries you wait for, work requests your card takes free, answers to what you sent. Everything else from strangers is quarantined (information only). Whatever is delivered wakes you.",
+  "applies_to": "triage",
+  "engine": "tern-expr/1",
+  "inputs": ["msg.contact", "msg.paid_postage", "msg.expected", "msg.work_request", "msg.free_requests", "msg.reply_to_ours", "msg.basis"],
+  "rules": {
+    "deliver": "msg.contact || msg.paid_postage || msg.expected || msg.work_request && msg.free_requests || msg.reply_to_ours",
+    "wake": "msg.contact || msg.paid_postage || msg.expected || msg.work_request && msg.free_requests || msg.reply_to_ours"
+  },
+  "reason": "{msg.basis}",
+  "license": "CC0-1.0",
+  "author": "ternchain",
+  "payee": "ternchain",
+  "files": {}
+}

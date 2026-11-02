@@ -1,0 +1,9 @@
+# security.txt for tern (RFC 9116).
+# The full policy, scope and timeline: SECURITY.md in the repository root.
+# Never report a vulnerability in a public issue.
+
+Contact: https://github.com/nenkoru/tern/security/advisories/new
+Expires: 2027-10-26T00:00:00.000Z
+Policy: https://github.com/nenkoru/tern/blob/main/SECURITY.md
+Acknowledgments: https://github.com/nenkoru/tern/blob/main/SECURITY.md#thanks
+Preferred-Languages: en, ru

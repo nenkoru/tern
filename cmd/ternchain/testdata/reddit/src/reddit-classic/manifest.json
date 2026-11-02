@@ -1,0 +1,133 @@
+{
+  "schema": "tern.ui-package/1",
+  "kind": "templates",
+  "name": "reddit-classic",
+  "version": "1.0.0",
+  "line": "reddit-classic@1",
+  "description": "Classic community rows: a vote column, compact titles, comments and tips. Templates only (A2UI data), no code.",
+  "a2ui": "0.9",
+  "catalogId": "tern:catalog/basic+tern@1",
+  "templates": [
+    {
+      "id": "community.feed",
+      "binds": "tern.schema/feed@1",
+      "file": "templates/feed.json"
+    },
+    {
+      "id": "community.thread",
+      "binds": "tern.schema/feed@1",
+      "file": "templates/thread.json"
+    },
+    {
+      "id": "card.invitation",
+      "binds": "tern.card/invitation@1",
+      "file": "templates/invitation.json"
+    },
+    {
+      "id": "card.job",
+      "binds": "tern.card/job@1",
+      "file": "templates/job.json"
+    },
+    {
+      "id": "card.vote",
+      "binds": "tern.card/vote@1",
+      "file": "templates/vote.json"
+    }
+  ],
+  "actions": {
+    "up": {
+      "kind": "react",
+      "params": {
+        "post": "id",
+        "reaction": "=up"
+      }
+    },
+    "down": {
+      "kind": "react",
+      "params": {
+        "post": "id",
+        "reaction": "=down"
+      }
+    },
+    "open": {
+      "kind": "local",
+      "params": {
+        "post": "id"
+      }
+    },
+    "tip": {
+      "kind": "pay",
+      "params": {
+        "to": "author",
+        "amount": "/tip/amount",
+        "post": "id"
+      }
+    },
+    "tip_big": {
+      "kind": "pay",
+      "params": {
+        "to": "author",
+        "amount": "/tip/big",
+        "post": "id"
+      }
+    },
+    "accept": {
+      "kind": "answer",
+      "params": {
+        "to": "/card/from",
+        "card": "/card/id",
+        "response": "=accept"
+      }
+    },
+    "decline": {
+      "kind": "answer",
+      "params": {
+        "to": "/card/from",
+        "card": "/card/id",
+        "response": "=decline"
+      }
+    },
+    "apply": {
+      "kind": "reveal",
+      "params": {
+        "to": "/card/from",
+        "card": "/card/id",
+        "response": "=apply"
+      }
+    },
+    "choose": {
+      "kind": "vote",
+      "params": {
+        "card": "/card/id",
+        "community": "/card/commons",
+        "option": "value"
+      }
+    },
+    "more": {
+      "kind": "local",
+      "params": {
+        "card": "/card/id"
+      }
+    }
+  },
+  "permissions": {
+    "resourceDomains": [],
+    "connectDomains": [],
+    "media": false
+  },
+  "license": "CC-BY-SA-4.0",
+  "price": {
+    "model": "free"
+  },
+  "files": {},
+  "theme": {
+    "--accent": "#ff4500",
+    "--bg": "#dae0e6",
+    "--card": "#ffffff",
+    "--text": "#1a1a1b",
+    "--muted": "#7c7c7c",
+    "--radius": "4px",
+    "--font": "Verdana, Arial, sans-serif",
+    "--size": "14px"
+  }
+}

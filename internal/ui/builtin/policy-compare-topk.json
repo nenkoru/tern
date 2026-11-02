@@ -1,0 +1,24 @@
+{
+  "schema": "tern.policy/1",
+  "name": "compare-topk",
+  "version": "1.0.0",
+  "line": "compare-topk@1",
+  "description": "Same top choices: at least params.min of the 5 largest entries' positions agree (the next token's top candidates).",
+  "applies_to": "compare",
+  "engine": "tern-expr/1",
+  "inputs": [
+    "pair.has_vec",
+    "pair.same_hash",
+    "pair.topk_overlap"
+  ],
+  "params": {
+    "min": 0.8
+  },
+  "rules": {
+    "agree": "pair.same_hash || pair.has_vec && pair.topk_overlap >= params.min"
+  },
+  "license": "CC0-1.0",
+  "author": "ternchain",
+  "payee": "ternchain",
+  "files": {}
+}

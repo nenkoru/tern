@@ -1,0 +1,21 @@
+{
+  "schema": "tern.policy/1",
+  "name": "pool-default",
+  "version": "1.0.0",
+  "line": "pool-default@1",
+  "description": "Credits first: the member with the most credits (served minus used) is served first; one at or below the group's floor waits until it gives again.",
+  "applies_to": "pool",
+  "engine": "tern-expr/1",
+  "inputs": [
+    "member.balance",
+    "pool.floor"
+  ],
+  "rules": {
+    "priority": "member.balance",
+    "waits": "member.balance <= pool.floor"
+  },
+  "license": "CC0-1.0",
+  "author": "ternchain",
+  "payee": "ternchain",
+  "files": {}
+}

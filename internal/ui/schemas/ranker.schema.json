@@ -1,0 +1,30 @@
+{
+  "$id": "tern.ranker/1",
+  "title": "A ranking module: a small pure function over the feed, run on the reader's device",
+  "type": "object",
+  "required": ["schema", "name", "version", "line", "applies_to", "engine", "inputs", "score", "reason", "author", "payee", "files"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "tern.ranker/1"},
+    "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,40}$"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "line": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,40}@[0-9]+$"},
+    "description": {"type": "string", "maxLength": 300},
+    "applies_to": {"const": "tern.schema/feed@1"},
+    "engine": {"const": "tern-expr/1"},
+    "inputs": {"type": "array", "minItems": 1, "maxItems": 40, "items": {"type": "string", "pattern": "^(item|author)\\.[a-z_]{1,32}$"}},
+    "params": {"type": "object", "additionalProperties": {"type": "number"}},
+    "filter": {"type": "string", "maxLength": 1000},
+    "score": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 500},
+    "limits": {"type": "object", "additionalProperties": false,
+               "properties": {"max_cost": {"type": "integer", "minimum": 1, "maximum": 1000000}, "network": {"const": false}, "deterministic": {"const": true}}},
+    "parent": {"type": "object"},
+    "royalty": {"type": "object"},
+    "license": {"type": "string", "maxLength": 60},
+    "price": {"type": "object"},
+    "author": {"type": "string"},
+    "payee": {"type": "string"},
+    "files": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+  }
+}

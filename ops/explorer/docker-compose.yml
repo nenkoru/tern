@@ -1,0 +1,117 @@
+# Blockscout for the ternchain L1 testnet (chain id 83760), on Besu.
+#
+#   cd ops/explorer && cp explorer.env.example .env && edit .env && docker compose up -d
+#
+# It reads the chain from the ARCHIVE node (FOREST, `validator run --archive`)
+# over its PRIVATE RPC: Blockscout needs DEBUG/TRACE methods and old state,
+# which the public RPC profile does not serve. See README.md.
+#
+# Image versions: postgres and caddy tags are certain. The Blockscout tags
+# below are NOT VERIFIED (written from memory, not pulled). Before the first
+# start, check them on Docker Hub / ghcr.io and set the newest stable ones in
+# .env; then pin by digest.
+services:
+  db:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    shm_size: 256m
+    environment:
+      POSTGRES_DB: blockscout
+      POSTGRES_USER: blockscout
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    command: postgres -c max_connections=200 -c shared_buffers=1GB
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blockscout -d blockscout"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    # NOT VERIFIED: check https://hub.docker.com/r/blockscout/blockscout/tags
+    image: blockscout/blockscout:${BLOCKSCOUT_TAG:-8.0.0}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # the archive node's RPC on the docker bridge (README)
+    command: sh -c 'bin/blockscout eval "Elixir.Explorer.ReleaseTasks.create_and_migrate()" && bin/blockscout start'
+    environment:
+      DATABASE_URL: postgresql://blockscout:${POSTGRES_PASSWORD}@db:5432/blockscout
+      ECTO_USE_SSL: "false"
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE in .env (openssl rand -hex 64)}
+      ETHEREUM_JSONRPC_VARIANT: besu
+      ETHEREUM_JSONRPC_HTTP_URL: ${ARCHIVE_RPC_HTTP:-http://host.docker.internal:8545}
+      ETHEREUM_JSONRPC_TRACE_URL: ${ARCHIVE_RPC_HTTP:-http://host.docker.internal:8545}
+      ETHEREUM_JSONRPC_WS_URL: ${ARCHIVE_RPC_WS:-ws://host.docker.internal:8546}
+      CHAIN_ID: "83760"
+      NETWORK: ternchain
+      SUBNETWORK: testnet
+      COIN: TERN
+      COIN_NAME: TERN
+      # Internal transactions need trace_* (Besu's TRACE API) on the archive
+      # node. If it does not serve them, set this to "true" (README).
+      INDEXER_DISABLE_INTERNAL_TRANSACTIONS_FETCHER: ${NO_TRACE:-false}
+      # No market data: the coin has no price, by design.
+      DISABLE_EXCHANGE_RATES: "true"   # name differs between Blockscout releases: check the env docs
+      EXCHANGE_RATES_COIN: ""
+      API_V2_ENABLED: "true"
+      PORT: "4000"
+      # Contract verification (the sc-verifier service below)
+      MICROSERVICE_SC_VERIFIER_ENABLED: "true"
+      MICROSERVICE_SC_VERIFIER_URL: http://sc-verifier:8050/
+      MICROSERVICE_SC_VERIFIER_TYPE: sc_verifier
+      ACCOUNT_ENABLED: "false"
+      # QBFT: 1 s blocks, no uncles, no PoW
+      BLOCK_TRANSFORMER: base
+    volumes:
+      - backend-logs:/app/logs
+
+  sc-verifier:
+    # NOT VERIFIED: check https://github.com/blockscout/blockscout-rs/pkgs/container/smart-contract-verifier
+    image: ghcr.io/blockscout/smart-contract-verifier:${SC_VERIFIER_TAG:-v1.9.0}
+    restart: unless-stopped
+    environment:
+      SMART_CONTRACT_VERIFIER__SERVER__HTTP__ADDR: 0.0.0.0:8050
+
+  frontend:
+    # NOT VERIFIED: check https://github.com/blockscout/frontend/pkgs/container/frontend
+    image: ghcr.io/blockscout/frontend:${FRONTEND_TAG:-v2.0.0}
+    restart: unless-stopped
+    depends_on: [backend]
+    environment:
+      NEXT_PUBLIC_API_HOST: ${EXPLORER_HOST:?set EXPLORER_HOST in .env}
+      NEXT_PUBLIC_API_PROTOCOL: https
+      NEXT_PUBLIC_API_WEBSOCKET_PROTOCOL: wss
+      NEXT_PUBLIC_APP_HOST: ${EXPLORER_HOST}
+      NEXT_PUBLIC_APP_PROTOCOL: https
+      NEXT_PUBLIC_NETWORK_NAME: ternchain testnet
+      NEXT_PUBLIC_NETWORK_SHORT_NAME: ternchain
+      NEXT_PUBLIC_NETWORK_ID: "83760"
+      NEXT_PUBLIC_NETWORK_CURRENCY_NAME: TERN
+      NEXT_PUBLIC_NETWORK_CURRENCY_SYMBOL: TERN
+      NEXT_PUBLIC_NETWORK_CURRENCY_DECIMALS: "18"
+      # The PUBLIC RPC, for "add network" buttons in wallets. Never the archive node.
+      NEXT_PUBLIC_NETWORK_RPC_URL: ${PUBLIC_RPC_URL:?set PUBLIC_RPC_URL in .env}
+      NEXT_PUBLIC_IS_TESTNET: "true"
+      NEXT_PUBLIC_HOMEPAGE_CHARTS: "[]"
+
+  proxy:
+    image: caddy:2.10.0
+    restart: unless-stopped
+    depends_on: [backend, frontend]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      EXPLORER_HOST: ${EXPLORER_HOST}
+    volumes:
+      - ./Caddyfile.explorer:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+
+volumes:
+  db-data:
+  backend-logs:
+  caddy-data:

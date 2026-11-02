@@ -1,0 +1,19 @@
+{
+  "schema": "tern.policy/1",
+  "name": "compare-default",
+  "version": "1.0.0",
+  "line": "compare-default@1",
+  "description": "Exact: the two outputs' hashes are equal (greedy decoding's token ids, a file's bytes, a reproducible build).",
+  "applies_to": "compare",
+  "engine": "tern-expr/1",
+  "inputs": [
+    "pair.same_hash"
+  ],
+  "rules": {
+    "agree": "pair.same_hash"
+  },
+  "license": "CC0-1.0",
+  "author": "ternchain",
+  "payee": "ternchain",
+  "files": {}
+}

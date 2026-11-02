@@ -1,0 +1,30 @@
+{
+  "$id": "tern.policy/1",
+  "title": "A client policy module: one of the reader's social policies (triage, rating, reports, spam, look-alike names) as small pure expressions and parameters, run on the reader's device; the security floors around it are not its to change",
+  "type": "object",
+  "required": ["schema", "name", "version", "line", "applies_to", "engine", "author", "payee", "files"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "tern.policy/1"},
+    "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,40}$"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "line": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,40}@[0-9]+$"},
+    "description": {"type": "string", "maxLength": 500},
+    "applies_to": {"enum": ["triage", "rating", "reports", "spam", "lookalike", "pool", "compare"]},
+    "engine": {"const": "tern-expr/1"},
+    "inputs": {"type": "array", "maxItems": 60, "items": {"type": "string", "pattern": "^[a-z]+\\.[a-z_]{1,40}$"}},
+    "params": {"type": "object", "additionalProperties": {"type": "number"}},
+    "rules": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1, "maxLength": 2000}},
+    "reason": {"type": "string", "maxLength": 500},
+    "tables": {"type": "object", "additionalProperties": {"type": "string", "maxLength": 120}},
+    "limits": {"type": "object", "additionalProperties": false,
+               "properties": {"max_cost": {"type": "integer", "minimum": 1, "maximum": 1000000}, "network": {"const": false}, "deterministic": {"const": true}}},
+    "parent": {"type": "object"},
+    "royalty": {"type": "object"},
+    "license": {"type": "string", "maxLength": 60},
+    "price": {"type": "object"},
+    "author": {"type": "string"},
+    "payee": {"type": "string"},
+    "files": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+  }
+}

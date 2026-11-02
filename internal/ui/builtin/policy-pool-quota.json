@@ -1,0 +1,21 @@
+{
+  "schema": "tern.policy/1",
+  "name": "pool-quota",
+  "version": "1.0.0",
+  "line": "pool-quota@1",
+  "description": "A daily quota: whoever used least today goes first; one past the group's quota_day waits until the next UTC day.",
+  "applies_to": "pool",
+  "engine": "tern-expr/1",
+  "inputs": [
+    "member.used_today",
+    "pool.quota_day"
+  ],
+  "rules": {
+    "priority": "0 - member.used_today",
+    "waits": "pool.quota_day > 0 && member.used_today >= pool.quota_day"
+  },
+  "license": "CC0-1.0",
+  "author": "ternchain",
+  "payee": "ternchain",
+  "files": {}
+}

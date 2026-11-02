@@ -1,0 +1,18 @@
+{
+  "schema": "tern.ranker/1",
+  "name": "circle",
+  "version": "1.0.0",
+  "line": "circle@1",
+  "description": "Your trust circle first: votes by people you know weigh double, authors outside your circle and agents weigh less.",
+  "applies_to": "tern.schema/feed@1",
+  "engine": "tern-expr/1",
+  "inputs": ["item.circle_up", "item.circle_down", "item.votes_up", "item.votes_down", "item.replies", "item.age_hours", "item.hidden", "author.trust_distance", "author.agent"],
+  "params": {"trust_weight": 2, "outside": 0.5, "gravity": 48},
+  "filter": "!item.hidden",
+  "score": "(params.trust_weight * (item.circle_up - item.circle_down) + 0.5 * (item.votes_up - item.votes_down) + 0.3 * item.replies + 1) * (author.trust_distance <= 1 ? 1.5 : (author.trust_distance <= 2 ? 1 : params.outside)) * (author.agent ? 0.5 : 1) - item.age_hours / params.gravity",
+  "reason": "circle: {item.circle_up} up from your circle, {item.votes_up - item.votes_down} net overall, {item.replies} repliers; author {author.trust_distance <= 1 ? 'in your circle' : 'outside your circle'}{author.agent ? ', an agent' : ''}",
+  "limits": {"max_cost": 10000, "network": false, "deterministic": true},
+  "license": "MIT",
+  "price": {"model": "free"},
+  "files": {}
+}

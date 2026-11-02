@@ -1,0 +1,20 @@
+{
+  "schema": "tern.policy/1",
+  "name": "pool-fifo",
+  "version": "1.0.0",
+  "line": "pool-fifo@1",
+  "description": "First come, first served: the longest-waiting request goes first; nobody waits.",
+  "applies_to": "pool",
+  "engine": "tern-expr/1",
+  "inputs": [
+    "member.waiting_minutes"
+  ],
+  "rules": {
+    "priority": "member.waiting_minutes",
+    "waits": "false"
+  },
+  "license": "CC0-1.0",
+  "author": "ternchain",
+  "payee": "ternchain",
+  "files": {}
+}

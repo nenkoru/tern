@@ -1,0 +1,51 @@
+{
+  "$id": "tern.offer/1",
+  "title": "An offer of anything to others (a GPU, disk, a seat, a car, an API quota, a skill, a room): what, how much, which parts of a whole, on what terms, when and where; never an endpoint (that goes sealed in presence)",
+  "type": "object",
+  "required": ["schema", "kind", "title"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "tern.offer/1"},
+    "kind": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$"},
+    "title": {"type": "string", "minLength": 1, "maxLength": 200},
+    "whole": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,119}$"},
+    "holds": {"type": "string", "pattern": "^[0-9]{1,6}(-[0-9]{1,6})?(,[0-9]{1,6}(-[0-9]{1,6})?){0,31}$"},
+    "of": {"type": "integer", "minimum": 1, "maximum": 1000000},
+    "amount": {
+      "type": "object", "required": ["value", "unit"], "additionalProperties": false,
+      "properties": {
+        "value": {"type": "number", "minimum": 0},
+        "unit": {"type": "string", "pattern": "^[a-z][a-z0-9_/-]{0,31}$"}
+      }
+    },
+    "rate": {
+      "type": "object", "required": ["value", "unit"], "additionalProperties": false,
+      "properties": {
+        "value": {"type": "number", "minimum": 0},
+        "unit": {"type": "string", "pattern": "^[a-z][a-z0-9_/-]{0,31}$"}
+      }
+    },
+    "price": {
+      "type": "object", "required": ["coins", "per", "unit"], "additionalProperties": false,
+      "properties": {
+        "coins": {"type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$"},
+        "per": {"type": "number", "minimum": 1},
+        "unit": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,31}$"}
+      }
+    },
+    "free_for": {"type": "array", "maxItems": 16, "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,80}$"}},
+    "settle": {"type": "array", "maxItems": 3, "items": {"enum": ["channel", "credits", "free"]}},
+    "available": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "from": {"type": "integer", "minimum": 0},
+        "until": {"type": "integer", "minimum": 0},
+        "when": {"type": "string", "maxLength": 80}
+      }
+    },
+    "region": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
+    "protocol": {"type": "string", "maxLength": 64},
+    "ext": {"type": "object", "additionalProperties": {"type": "object"}},
+    "note": {"type": "string", "maxLength": 300}
+  }
+}

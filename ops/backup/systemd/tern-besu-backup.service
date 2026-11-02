@@ -1,0 +1,19 @@
+# Nightly backup of a NON-validator Besu node (ops/backup/besu-backup.sh).
+# Install (as root):
+#   install -m 0755 ops/backup/besu-backup.sh ops/backup/besu-restore-test.sh /opt/tern/
+#   install -m 0600 ops/backup/systemd/backup.env.example /etc/tern/backup.env   # then edit it
+#   cp ops/backup/systemd/tern-besu-*.service ops/backup/systemd/tern-besu-*.timer /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now tern-besu-backup.timer tern-besu-restore-test.timer
+# Check: systemctl list-timers 'tern-besu-*'; journalctl -u tern-besu-backup
+[Unit]
+Description=ternchain: backup of a non-validator Besu node
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/tern/backup.env
+ExecStart=/opt/tern/besu-backup.sh
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=4h

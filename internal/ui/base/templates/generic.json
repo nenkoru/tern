@@ -1,0 +1,9 @@
+{"title": "card", "components": [
+  {"id": "root", "component": "Card", "variant": "outlined", "child": "body"},
+  {"id": "body", "component": "Column", "gap": "small", "children": ["kind", "subject", "from", "more"]},
+  {"id": "kind", "component": "Badge", "tone": "neutral", "text": {"path": "/card/kind"}},
+  {"id": "subject", "component": "Text", "variant": "h3", "text": {"path": "/card/subject"}},
+  {"id": "from", "component": "Text", "variant": "caption", "text": {"path": "/card/from_line"}},
+  {"id": "more", "component": "Button", "variant": "quiet", "child": "more_l", "action": {"event": {"name": "more"}}},
+  {"id": "more_l", "component": "Text", "text": "More"}
+]}

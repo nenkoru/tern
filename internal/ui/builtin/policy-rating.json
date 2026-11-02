@@ -1,0 +1,21 @@
+{
+  "schema": "tern.policy/1",
+  "name": "rating-default",
+  "version": "1.0.0",
+  "line": "rating-default@1",
+  "description": "(Σ w·score / Σ w) × R / (R + 0.25); w = log2(1 + coins paid in the cited lock) × t, t = 0.5^(age days / 180) × reviewer weight, R = Σ t; a reviewer's weight is (its own score + 100) / 200 within [0.25, 1], 0.5 without a rating (PRIMITIVES.md, Rating)",
+  "applies_to": "rating",
+  "engine": "tern-expr/1",
+  "inputs": ["reviewer.has_rating", "reviewer.score", "reviewer.weight", "review.age_days", "review.coins", "review.trust", "rating.mean", "rating.trust"],
+  "params": {"half_life_days": 180, "prior": 0.25, "reviewer_floor": 0.25, "reviewer_unknown": 0.5},
+  "rules": {
+    "reviewer_weight": "reviewer.has_rating ? clamp((reviewer.score + 100) / 200, params.reviewer_floor, 1) : params.reviewer_unknown",
+    "review_trust": "pow(0.5, review.age_days / params.half_life_days) * reviewer.weight",
+    "review_weight": "log2(1 + review.coins) * review.trust",
+    "score": "rating.mean * rating.trust / (rating.trust + params.prior)"
+  },
+  "license": "CC0-1.0",
+  "author": "ternchain",
+  "payee": "ternchain",
+  "files": {}
+}

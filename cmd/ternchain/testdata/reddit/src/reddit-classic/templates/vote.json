@@ -1,0 +1,13 @@
+{"title": "vote", "components": [
+  {"id": "root", "component": "Card", "variant": "outlined", "child": "body"},
+  {"id": "body", "component": "Column", "gap": "small", "children": ["kind", "question", "closes", "opts", "from"]},
+  {"id": "kind", "component": "Badge", "tone": "warn", "text": "Vote"},
+  {"id": "question", "component": "Text", "variant": "h3", "text": {"path": "/card/question"}},
+  {"id": "closes", "component": "Text", "variant": "caption", "text": {"path": "/card/closes_line"}},
+  {"id": "opts", "component": "List", "children": {"componentId": "opt", "path": "/options"}},
+  {"id": "opt", "component": "Row", "gap": "small", "align": "center", "children": ["olabel", "ochoose"]},
+  {"id": "olabel", "component": "Text", "variant": "body", "text": {"path": "label"}},
+  {"id": "ochoose", "component": "Button", "child": "ochoose_l", "action": {"event": {"name": "choose"}}},
+  {"id": "ochoose_l", "component": "Text", "text": "Vote for this"},
+  {"id": "from", "component": "Text", "variant": "caption", "text": {"path": "/card/from_line"}}
+]}

@@ -1,0 +1,7 @@
+{"schema": "tern.ranker/1", "name": "trust", "version": "1.0.0", "line": "trust@1",
+ "description": "score = (1/(1+depth) + 0.5 if a citizen; ×0.5 if an agent; depth unknown = 0.1) × (1 + replies)^0.5 / (age h + 2)^0.5",
+ "applies_to": "tern.schema/feed@1", "engine": "tern-expr/1",
+ "inputs": ["item.age_hours", "item.replies", "item.hidden", "author.trust_distance", "author.citizen", "author.agent"], "filter": "!item.hidden",
+ "score": "((author.trust_distance >= 9 ? 0.1 : 1 / (1 + author.trust_distance)) + (author.citizen ? 0.5 : 0)) * (author.agent ? 0.5 : 1) * sqrt(1 + item.replies) / sqrt(item.age_hours + 2)",
+ "reason": "{author.trust_distance >= 9 ? \"outside your trust graph\" : \"trust depth \" + author.trust_distance + (author.trust_distance <= 1 ? \" (you or your contact)\" : \"\")}{author.citizen ? \", human (citizen)\" : \"\"}{author.agent ? \", an agent\" : \"\"}, {item.replies} replies, {item.age_hours:1} h old",
+ "license": "CC0-1.0", "author": "ternchain", "payee": "ternchain", "files": {}}

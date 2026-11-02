@@ -1,0 +1,20 @@
+{
+  "schema": "tern.policy/1",
+  "name": "pool-round-robin",
+  "version": "1.0.0",
+  "line": "pool-round-robin@1",
+  "description": "Turns: whoever used the pool longest ago goes first; nobody waits.",
+  "applies_to": "pool",
+  "engine": "tern-expr/1",
+  "inputs": [
+    "member.hours_since_used"
+  ],
+  "rules": {
+    "priority": "member.hours_since_used",
+    "waits": "false"
+  },
+  "license": "CC0-1.0",
+  "author": "ternchain",
+  "payee": "ternchain",
+  "files": {}
+}

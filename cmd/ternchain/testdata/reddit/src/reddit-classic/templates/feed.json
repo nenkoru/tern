@@ -1,0 +1,23 @@
+{"title": "r/community", "components": [
+  {"id": "root", "component": "Column", "gap": "small", "children": ["head", "meta", "list"]},
+  {"id": "head", "component": "Text", "variant": "h2", "text": {"path": "/community"}},
+  {"id": "meta", "component": "Text", "variant": "caption", "text": {"path": "/summary"}},
+  {"id": "list", "component": "List", "children": {"componentId": "row", "path": "/items"}},
+  {"id": "row", "component": "Card", "variant": "plain", "child": "rowin"},
+  {"id": "rowin", "component": "Row", "gap": "medium", "align": "start", "children": ["votes", "main"]},
+  {"id": "votes", "component": "Column", "gap": "none", "align": "center", "children": ["up", "net", "down"]},
+  {"id": "up", "component": "Button", "variant": "quiet", "child": "up_l", "action": {"event": {"name": "up"}}},
+  {"id": "up_l", "component": "Text", "text": "▲"},
+  {"id": "net", "component": "Text", "variant": "h3", "text": {"path": "net"}},
+  {"id": "down", "component": "Button", "variant": "quiet", "child": "down_l", "action": {"event": {"name": "down"}}},
+  {"id": "down_l", "component": "Text", "text": "▼"},
+  {"id": "main", "component": "Column", "gap": "none", "children": ["title", "byline", "why", "acts"]},
+  {"id": "title", "component": "Text", "variant": "h3", "text": {"path": "title"}},
+  {"id": "byline", "component": "Text", "variant": "caption", "text": {"path": "byline"}},
+  {"id": "why", "component": "Text", "variant": "caption", "text": {"path": "why"}},
+  {"id": "acts", "component": "Row", "gap": "small", "children": ["open", "tip"]},
+  {"id": "open", "component": "Button", "variant": "quiet", "child": "open_l", "action": {"event": {"name": "open"}}},
+  {"id": "open_l", "component": "Text", "text": "💬 comments"},
+  {"id": "tip", "component": "Button", "variant": "quiet", "child": "tip_l", "action": {"event": {"name": "tip"}}},
+  {"id": "tip_l", "component": "Text", "text": "◎ tip"}
+]}

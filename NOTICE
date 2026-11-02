@@ -1,0 +1,66 @@
+ternchain (github.com/nenkoru/tern)
+Copyright 2026 the ternchain authors
+
+Licensed under the Apache License, Version 2.0 (see LICENSE). The gnark-exported
+verifiers and examples/*.sol keep their MIT headers.
+
+Built with AI: tern was designed and written with heavy use of Claude
+(Anthropic) under human direction. Treat it as an unaudited prototype.
+
+This product includes or links third-party software under the licences below.
+
+Go dependencies (linked into the ternchain and ternchain-ops binaries)
+-----------------------------------------------------------------------
+* go-ethereum (github.com/ethereum/go-ethereum v1.16.5), library packages only
+  (common, crypto, core, core/types, accounts/abi, ethclient, rpc, rlp, params,
+  node, eth, trie, p2p, ethdb and their dependencies; nothing from cmd/).
+  Licence: GNU Lesser General Public License v3.0 (LGPL-3.0).
+  The binaries link these libraries statically. The complete corresponding
+  source of this program (this repository, with go.mod and go.sum pinning the
+  exact go-ethereum version) is published, so a recipient can rebuild the
+  binaries against a modified go-ethereum, as LGPL-3.0 section 4 requires.
+  Binary releases must ship the LGPL-3.0 and GPL-3.0 texts with this NOTICE.
+* gnark and gnark-crypto (github.com/consensys/gnark v0.16.3,
+  github.com/consensys/gnark-crypto v0.21.0). Licence: Apache-2.0.
+  contracts/Poseidon2.sol, contracts/Poseidon2Hasher.sol and the verifiers
+  contracts/PoolVerifier.sol and contracts/VoteVerifier.sol are generated with
+  gnark / gnark-crypto (zk_setup_test.go).
+* filippo.io/age, filippo.io/edwards25519. Licence: BSD-3-Clause.
+* golang.org/x/crypto, golang.org/x/text. Licence: BSD-3-Clause.
+* Other indirect dependencies (see go.sum) are under Apache-2.0
+  (blst, c-kzg-4844, go-eth-kzg, go-ipa), BSD-3-Clause (pebble,
+  holiman/uint256) and the Unlicense (go-verkle).
+
+Vendored Solidity sources (contracts/vendor/, see contracts/vendor/README.md)
+-----------------------------------------------------------------------------
+* OpenZeppelin Contracts 5.6.1. Licence: MIT
+  (contracts/vendor/@openzeppelin/contracts/LICENSE).
+* Ethereum Attestation Service contracts 1.9.0. Licence: MIT
+  (contracts/vendor/@ethereum-attestation-service/eas-contracts/LICENSE).
+* ERC-4337 EntryPoint v0.8 (eth-infinitism account-abstraction), core/*.sol.
+  Licence: GPL-3.0 (contracts/vendor/@account-abstraction/contracts/LICENSE).
+  contracts/build.js compiles EntryPoint.sol; its bytecode is written to
+  build/EntryPoint_sol_EntryPoint.bin and embedded in the ternchain binary,
+  which deploys it as a separate contract on a devnet and on ternchain's own
+  L1. We treat the embedded EntryPoint bytecode as a separate work aggregated
+  with ternchain ("mere aggregation"): its complete source is in
+  contracts/vendor/ under GPL-3.0. On a chain that already has the canonical
+  EntryPoint v0.8 (0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108; Base Sepolia,
+  `ternchain-ops deploy --entry-point canonical`) the vendored EntryPoint is
+  not deployed: ternchain uses the one on chain and only reads its ABI.
+
+Cryptographic schemes
+---------------------
+* The secret-vote circuit follows the Semaphore v4 scheme (Semaphore is MIT
+  licensed). No Semaphore source code is copied into this repository; the
+  circuits are written with gnark.
+
+Own Solidity
+------------
+* contracts/*.sol: Apache-2.0, except the gnark-exported verifiers
+  (PoolVerifier.sol, VoteVerifier.sol: MIT, as generated).
+* examples/*.sol: MIT.
+
+The zk proving and verifying keys in internal/zk/keys/ come from a
+single-party development setup. They are not secure for anything of value:
+whoever ran the setup can forge proofs (see docs/PRIVACY.md and SECURITY.md).

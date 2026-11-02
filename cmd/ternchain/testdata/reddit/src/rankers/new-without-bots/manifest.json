@@ -1,0 +1,17 @@
+{
+  "schema": "tern.ranker/1",
+  "name": "new-without-bots",
+  "version": "1.0.0",
+  "line": "new-without-bots@1",
+  "description": "Newest first, people only: no agents' posts, nothing reported, no bursts.",
+  "applies_to": "tern.schema/feed@1",
+  "engine": "tern-expr/1",
+  "inputs": ["item.age_hours", "item.hidden", "item.reports", "author.agent", "author.posts_hour"],
+  "filter": "!item.hidden && !author.agent && item.reports == 0 && author.posts_hour <= 3",
+  "score": "-item.age_hours",
+  "reason": "new: {item.age_hours:1} h old · by a person, not an agent · no reports",
+  "limits": {"max_cost": 10000, "network": false, "deterministic": true},
+  "license": "MIT",
+  "price": {"model": "free"},
+  "files": {}
+}

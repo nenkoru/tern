@@ -1,0 +1,24 @@
+{
+  "$id": "tern.react/1",
+  "title": "A batch of one member's reactions (the body of a tern.react datagram to group:COMMUNITY)",
+  "type": "object",
+  "required": ["schema", "community", "reactions"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "tern.react/1"},
+    "community": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,80}$"},
+    "reactions": {
+      "type": "array", "minItems": 1, "maxItems": 256,
+      "items": {
+        "type": "object",
+        "required": ["post", "kind", "at"],
+        "additionalProperties": false,
+        "properties": {
+          "post": {"type": "string", "pattern": "^0x[0-9a-f]{64}$"},
+          "kind": {"enum": ["up", "down", "none"]},
+          "at": {"type": "integer", "minimum": 0}
+        }
+      }
+    }
+  }
+}

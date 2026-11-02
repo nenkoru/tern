@@ -1,0 +1,44 @@
+# binaries / releases
+/ternchain
+/ternchain-ops
+/cmd/ternchain/ternchain
+/cmd/ternchain/ternchain-ops
+/tern
+/dist/
+*.exe
+# node / solc toolchain
+node_modules/
+contracts/.solc/node_modules/
+contracts/vendor/pack/
+contracts/vendor/**/deployments/
+contracts/vendor/**/dist/
+contracts/vendor/**/artifacts/
+# keys, identities, operator configs: never commit
+*.key
+*.key.*
+*.identity
+*.operator.json
+operator.json
+net.local.json
+**/id/
+**/usb/
+**/epochs/
+.env
+*.env
+!*.env.example
+# run state
+dastore/
+*.log
+*.batch
+*.lock
+__pycache__/
+*.pyc
+.cache/
+/sim/
+/docs/abuse/run/
+# media / scratch
+*.mp4
+*.webm
+*.mov
+demo-output.txt
+.DS_Store

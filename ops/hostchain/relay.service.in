@@ -1,0 +1,18 @@
+# @NAME@: the network's mail relay and ERC-4337 bundler (systemd --user unit).
+# Copy the folder's net.json, net.operator.json (the relay key, 0600), keys/bundler.key (0600) and the
+# ternchain-ops binary to ~/ternchain-net/@NAME@/ and put a reverse proxy's /base/* in front of 127.0.0.1:8665.
+# Senders pay their postage by voucher (@PRICE@ USDC an envelope) to the relay's name (--dir: its identity).
+[Unit]
+Description=@NAME@ relay and bundler
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/ternchain-net/@NAME@
+Environment=TERNCHAIN_NET=%h/ternchain-net/@NAME@/net.json
+ExecStart=%h/ternchain-net/@NAME@/bin/ternchain-ops relay serve --listen 127.0.0.1:8665 --bundler-key %h/ternchain-net/@NAME@/keys/bundler.key --dir %h/ternchain-net/@NAME@/id/relay --price @PRICE@ --store %h/ternchain-net/@NAME@/relay --trusted-proxy 127.0.0.1 --net %h/ternchain-net/@NAME@/net.json
+Restart=on-failure
+RestartSec=5
+MemoryMax=512M
+
+[Install]
+WantedBy=default.target

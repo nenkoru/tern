@@ -1,0 +1,55 @@
+name: release
+
+# A tag v* builds the binaries (scripts/release.sh) and the networks' files and
+# makes a DRAFT release with them. The signers rebuild it, sign SHA256SUMS and
+# SHA256SUMS-ops and add the .sigs; a person publishes it with
+# scripts/publish.sh TAG, which refuses it unless the threshold signed.
+# No draft at all while releases/signers.json has no signers (threshold 0),
+# unless the repository variable RELEASE_ALLOW_UNSIGNED is 1 (a test release).
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: signer set
+        env:
+          RELEASE_ALLOW_UNSIGNED: ${{ vars.RELEASE_ALLOW_UNSIGNED }}
+          RELEASE_ALLOW_ONE_SIGNER: ${{ vars.RELEASE_ALLOW_ONE_SIGNER }}
+        run: scripts/publish.sh --signers-only
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: test
+        run: go test ./... -count=1 -timeout 30m
+      - name: build
+        run: |
+          COMMIT="$(git rev-parse --short=12 HEAD)" scripts/release.sh "$GITHUB_REF_NAME" dist
+          grep ' ternchain-v' dist/SHA256SUMS > dist/SHA256SUMS.people
+          grep ' ternchain-ops-v' dist/SHA256SUMS > dist/SHA256SUMS-ops
+          mv dist/SHA256SUMS.people dist/SHA256SUMS
+      - name: networks
+        run: |
+          for d in networks/*/; do
+            n=$(basename "$d")
+            (cd "$d" && sha256sum -c SHA256SUMS)
+            cp "$d/net.json" "dist/net-$n.json"
+            tar czf "dist/zk-keys-$n.tar.gz" -C "$d" zk-keys
+            (cd dist && sha256sum "net-$n.json" "zk-keys-$n.tar.gz" > "SHA256SUMS-$n")
+          done
+      - name: draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pre=""
+          case "$GITHUB_REF_NAME" in *-rc*|*-alpha*|*-beta*) pre="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" --draft $pre --title "ternchain $GITHUB_REF_NAME" \
+            --notes "Binaries and SHA256SUMS (signed only when SHA256SUMS.sigs is attached; check with scripts/install.sh or ternchain release verify, docs/SUPPLY-CHAIN.md) and the public networks' files (net-NAME.json, zk-keys-NAME.tar.gz, SHA256SUMS-NAME). docs/base-sepolia.md tells how to join tern-base-sepolia-1." \
+            dist/*

@@ -1,0 +1,83 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go vet
+        run: go vet ./...
+      - name: go build
+        run: go build ./...
+      - name: go build -tags ops
+        run: go build -tags ops ./...
+      - name: go test
+        run: go test ./... -count=1 -timeout 30m
+
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: install solc (pinned, contracts/.solc/package-lock.json)
+        run: npm ci --prefix contracts/.solc
+      - name: rebuild contracts
+        run: node contracts/build.js
+      - name: build/ is reproducible
+        run: git diff --exit-code -- build/
+
+  # The release build is reproducible (docs/SUPPLY-CHAIN.md): build it twice, in two
+  # folders with two Go build caches, the second in a fresh clone with the modules
+  # downloaded again, for two targets, and fail if any byte differs. On a tag with a committed
+  # releases/TAG/SHA256SUMS, the build must also match those published sums.
+  reproducible:
+    runs-on: ubuntu-latest
+    env:
+      TARGETS: linux/amd64 darwin/arm64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: build the release
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then ver="$GITHUB_REF_NAME"; else ver="ci-${GITHUB_SHA::12}"; fi
+          echo "VER=$ver" >> "$GITHUB_ENV"
+          RELEASE_GOCACHE="$RUNNER_TEMP/cache1" scripts/release.sh "$ver" "$RUNNER_TEMP/build1"
+      - name: build it again in a fresh clone, fresh caches and modules, and compare
+        run: REPRO_FRESH_CACHE=1 scripts/repro.sh "$VER" "$GITHUB_SHA" "$RUNNER_TEMP/build1/SHA256SUMS"
+      - name: compare with the committed SHA256SUMS of this tag
+        run: |
+          if [ -f "releases/$VER/SHA256SUMS" ]; then
+            scripts/repro.sh "$VER" - "releases/$VER/SHA256SUMS" --built "$RUNNER_TEMP/build1"
+          else
+            echo "no releases/$VER/SHA256SUMS committed: nothing to compare"
+          fi
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

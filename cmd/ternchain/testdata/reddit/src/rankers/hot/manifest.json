@@ -1,0 +1,18 @@
+{
+  "schema": "tern.ranker/1",
+  "name": "hot",
+  "version": "1.0.0",
+  "line": "hot@1",
+  "description": "Reddit-like hot: net votes on a log scale against age; posts hidden by moderators or reports removed.",
+  "applies_to": "tern.schema/feed@1",
+  "engine": "tern-expr/1",
+  "inputs": ["item.votes_up", "item.votes_down", "item.age_hours", "item.hidden"],
+  "params": {"gravity": 12.5},
+  "filter": "!item.hidden",
+  "score": "(item.votes_up >= item.votes_down ? 1 : -1) * log10(max(1, abs(item.votes_up - item.votes_down))) - item.age_hours / params.gravity",
+  "reason": "hot: {item.votes_up - item.votes_down} net votes, {item.age_hours:1} h old (log10(net) − age/{params.gravity})",
+  "limits": {"max_cost": 10000, "network": false, "deterministic": true},
+  "license": "MIT",
+  "price": {"model": "free"},
+  "files": {}
+}

@@ -1,0 +1,23 @@
+{"title": "community cards", "components": [
+  {"id": "root", "component": "Column", "gap": "medium", "children": ["head", "meta", "list"]},
+  {"id": "head", "component": "Text", "variant": "h1", "text": {"path": "/community"}},
+  {"id": "meta", "component": "Text", "variant": "caption", "text": {"path": "/summary"}},
+  {"id": "list", "component": "List", "children": {"componentId": "card", "path": "/items"}},
+  {"id": "card", "component": "Card", "variant": "elevated", "child": "body"},
+  {"id": "body", "component": "Column", "gap": "small", "children": ["top", "title", "text", "why", "acts"]},
+  {"id": "top", "component": "Row", "gap": "small", "align": "center", "children": ["net", "byline"]},
+  {"id": "net", "component": "Badge", "tone": "accent", "text": {"path": "net"}},
+  {"id": "byline", "component": "Text", "variant": "caption", "text": {"path": "byline"}},
+  {"id": "title", "component": "Text", "variant": "h2", "text": {"path": "title"}},
+  {"id": "text", "component": "Text", "variant": "body", "text": {"path": "text"}},
+  {"id": "why", "component": "Text", "variant": "caption", "text": {"path": "why"}},
+  {"id": "acts", "component": "Row", "gap": "small", "children": ["up", "down", "open", "tip"]},
+  {"id": "up", "component": "Button", "child": "up_l", "action": {"event": {"name": "up"}}},
+  {"id": "up_l", "component": "Text", "text": "▲ Up"},
+  {"id": "down", "component": "Button", "child": "down_l", "action": {"event": {"name": "down"}}},
+  {"id": "down_l", "component": "Text", "text": "▼"},
+  {"id": "open", "component": "Button", "child": "open_l", "action": {"event": {"name": "open"}}},
+  {"id": "open_l", "component": "Text", "text": "Read the thread"},
+  {"id": "tip", "component": "Button", "variant": "primary", "child": "tip_l", "action": {"event": {"name": "tip"}}},
+  {"id": "tip_l", "component": "Text", "text": "Tip the author"}
+]}

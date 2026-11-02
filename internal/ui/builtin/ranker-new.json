@@ -1,0 +1,3 @@
+{"schema": "tern.ranker/1", "name": "new", "version": "1.0.0", "line": "new@1", "description": "newest first", "applies_to": "tern.schema/feed@1",
+ "engine": "tern-expr/1", "inputs": ["item.age_hours", "item.hidden"], "filter": "!item.hidden", "score": "-item.age_hours",
+ "reason": "newest first: {item.age_hours:1} h old", "license": "CC0-1.0", "author": "ternchain", "payee": "ternchain", "files": {}}

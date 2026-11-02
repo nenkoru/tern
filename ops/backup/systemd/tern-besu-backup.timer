@@ -1,0 +1,12 @@
+# Runs tern-besu-backup.service every night at 03:10 UTC (and after a missed run).
+# Different nodes: pick different times, so two non-validators are never down together.
+[Unit]
+Description=nightly ternchain Besu backup
+
+[Timer]
+OnCalendar=*-*-* 03:10:00 UTC
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

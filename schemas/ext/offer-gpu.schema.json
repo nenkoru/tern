@@ -1,0 +1,14 @@
+{
+  "$id": "offer/gpu",
+  "title": "An example extension for offers of kind gpu (publish it under your name: ternchain offer ext gpu @schemas/ext/offer-gpu.schema.json); readers who pin you check offers' ext[\"offer/gpu\"] against it",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "vram_gb": {"type": "number", "minimum": 0},
+    "device": {"type": "string", "maxLength": 64},
+    "model": {"type": "string", "maxLength": 120},
+    "quant": {"type": "string", "maxLength": 32},
+    "positions": {"type": "string", "maxLength": 64},
+    "rtt_ms": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0}}
+  }
+}

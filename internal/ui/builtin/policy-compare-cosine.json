@@ -1,0 +1,24 @@
+{
+  "schema": "tern.policy/1",
+  "name": "compare-cosine",
+  "version": "1.0.0",
+  "line": "compare-cosine@1",
+  "description": "Close enough: the vectors' cosine is at least params.min (activations or logits across different GPUs and kernels); calibrate min on honest pairs first.",
+  "applies_to": "compare",
+  "engine": "tern-expr/1",
+  "inputs": [
+    "pair.cosine",
+    "pair.has_vec",
+    "pair.same_hash"
+  ],
+  "params": {
+    "min": 0.999
+  },
+  "rules": {
+    "agree": "pair.same_hash || pair.has_vec && pair.cosine >= params.min"
+  },
+  "license": "CC0-1.0",
+  "author": "ternchain",
+  "payee": "ternchain",
+  "files": {}
+}

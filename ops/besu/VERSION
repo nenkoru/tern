@@ -1,0 +1,17 @@
+# The Besu release every ternchain L1 node runs. One line per key.
+# The source of truth for the code is `const besuImage` in validator.go;
+# keep the two equal. Change both only through ops/besu/UPGRADE.md.
+image=hyperledger/besu:26.9.0
+# sha256: the image digest. Pin by digest, not by tag (a tag can move).
+# Get it on a machine with Docker:
+#   docker pull hyperledger/besu:26.9.0
+#   docker inspect --format '{{index .RepoDigests 0}}' hyperledger/besu:26.9.0
+# or without pulling:
+#   docker buildx imagetools inspect hyperledger/besu:26.9.0 --format '{{json .Manifest.Digest}}'
+# Then run nodes with --image hyperledger/besu@sha256:<digest>.
+sha256=TODO-fill-in-from-docker-inspect
+# Java for a native (non-Docker) install: Besu 26.6+ needs JDK 25.
+jdk=25
+# Storage of a normal node: BONSAI (Besu's default). Archive node: FOREST (--archive).
+# Latest upstream on 2026-10-26: 26.10.1 (22 Oct 2026). Not adopted yet: see UPGRADE.md.
+# Upstream repository: https://github.com/besu-eth/besu (moved from hyperledger/besu).
