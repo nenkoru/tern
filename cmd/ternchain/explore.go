@@ -536,7 +536,7 @@ func (c *Client) exploreServices(limit int) ([]map[string]any, int, error) {
 }
 
 // exploreJobs: ERC-8183 tenders still open: made without a provider, none
-// picked since, not expired. Newest first.
+// picked since, not rejected or otherwise over, not expired. Newest first.
 func (c *Client) exploreJobs(limit int, now int64) ([]map[string]any, int, error) {
 	if !c.ch.has("TernJobs") {
 		return []map[string]any{}, 0, nil
@@ -549,9 +549,18 @@ func (c *Client) exploreJobs(limit int, now int64) ([]map[string]any, int, error
 	if err != nil {
 		return nil, 0, err
 	}
-	has := map[uint64]bool{}
+	has := map[uint64]bool{} // a provider picked, or the job over (rejected, completed, expired, refunded)
 	for _, e := range picked {
 		if e.Args["provider"].(common.Address) != (common.Address{}) {
+			has[e.Args["jobId"].(*big.Int).Uint64()] = true
+		}
+	}
+	for _, name := range []string{"JobRejected", "JobCompleted", "JobExpired", "Refunded"} {
+		evs, err := c.ch.events("TernJobs", name)
+		if err != nil {
+			return nil, 0, err
+		}
+		for _, e := range evs {
 			has[e.Args["jobId"].(*big.Int).Uint64()] = true
 		}
 	}
@@ -568,7 +577,7 @@ func (c *Client) exploreJobs(limit int, now int64) ([]map[string]any, int, error
 	jobs := map[uint64]jobT{}
 	for i, id := range open {
 		if len(out) == limit {
-			total++ // not read: counted as open (no provider, not expired)
+			total++ // not read: counted as open (no provider, not over, not expired)
 			continue
 		}
 		if _, ok := jobs[id]; !ok { // the next `limit` read at once: one round trip, not one each

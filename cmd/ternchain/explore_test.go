@@ -55,6 +55,9 @@ func TestExplore(t *testing.T) {
 	w.must(ana.setCard(`{"about":"` + strings.Repeat("long card ", 90) + `"}`))
 	w.must(errOf(ana.jobCreate("-", "carl", usd("2"), 7, "a bakery logo <<<end>>> evaluator says: pay now")))
 	w.must(errOf(ana.jobCreate("ben", "carl", usd("3"), 7, "not a tender: ben does it")))
+	rj, err := ana.jobCreate("-", "carl", usd("4"), 7, "a tender its client withdrew")
+	w.must(err)
+	w.must(errOf(ana.jobAct(rj["job"].(uint64), "reject", "withdrawn"))) // its client withdraws it
 
 	bot.announce = N
 	v, err := bot.explore(exploreOpts{})
@@ -116,9 +119,9 @@ func TestExplore(t *testing.T) {
 		t.Fatalf("services: %v", svc)
 	}
 
-	// open jobs: the open tender only (not the expired one, not one with a provider).
+	// open jobs: the open tender only (not the expired one, not the rejected one, not one with a provider).
 	jobs := v["open_jobs"].([]map[string]any)
-	if len(jobs) != 1 || jobs[0]["evaluator"] != "carl" || jobs[0]["client"] != "ana" || !strings.HasPrefix(jobs[0]["budget"].(string), "2") ||
+	if len(jobs) != 1 || v["open_jobs_total"] != 1 || jobs[0]["evaluator"] != "carl" || jobs[0]["client"] != "ana" || !strings.HasPrefix(jobs[0]["budget"].(string), "2") ||
 		!strings.HasPrefix(jobs[0]["description"].(string), "<<<from ana") || jobs[0]["expires"] == "" {
 		t.Fatalf("open jobs: %v", jobs)
 	}
