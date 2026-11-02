@@ -62,6 +62,7 @@
   ],
   "operator": "nobody: no operator",
   "contact": "the ternchain community",
+  "announce": "tern-news",
   "notice": "ternchain test network tern-base-sepolia-1: ternchain's contracts on base-sepolia, a public test chain. Nobody runs it and nobody can change these contracts: the deployer gave up every role and there are no citizens to vote (check: ternchain roles). Test money only: you pay your own gas, in Circle's test USDC from your account (or in Sepolia ETH). Secret votes use zk keys their deployer made alone: they are not private from it.",
   "contracts_hash": "55034bfd8aa4bd627e0d323fe5270ff09f210dcdf39e5eb06a522910df81aaf4",
   "rpcs": [
