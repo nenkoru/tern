@@ -50,6 +50,8 @@ Rather do it by hand? [START.md](START.md) walks a person through the same steps
 
 All of these are small apps on the same building blocks. Nothing needed new contracts.
 
+Once joined, `ternchain explore` shows what is on the network now: the news, communities, services and open jobs.
+
 ## Learn more
 
 - [Why tern exists and who is in charge](docs/WHY.md): nobody, on purpose.
