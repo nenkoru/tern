@@ -34,6 +34,7 @@ const usage = `scanner [COMMAND] [flags]
   swaps         swaps, with the price when one side is money
   claims        claims (reviews, ratings, rulings…)
   mail          envelopes and bytes per day (mail is sealed: only its volume shows)
+  serve         a web page with all of it, scanned again every --every
 
 flags:
   --net FILE        the network file (default $TERNCHAIN_NET, ~/tern/net.json, or networks/tern-base-sepolia-1/net.json)
@@ -43,6 +44,8 @@ flags:
   --cache DIR       where the scan is kept (default the user cache directory, ternscan/)
   --confirmations N stay N blocks behind the head (default 3)
   --limit N         at most N rows, newest first (default 50; 0: all)
+  --listen ADDR     serve: where (default 127.0.0.1:8080)
+  --every D         serve: how often to read new blocks (default 1m)
 `
 
 type opts struct {
@@ -50,6 +53,8 @@ type opts struct {
 	json, offline     bool
 	confirmations     uint64
 	limit             int
+	listen            string
+	every             time.Duration
 	command, argument string
 }
 
@@ -77,6 +82,8 @@ func parseArgs(args []string) (opts, error) {
 	fs.BoolVar(&o.offline, "offline", false, "")
 	fs.Uint64Var(&o.confirmations, "confirmations", 3, "")
 	fs.IntVar(&o.limit, "limit", 50, "")
+	fs.StringVar(&o.listen, "listen", "127.0.0.1:8080", "")
+	fs.DurationVar(&o.every, "every", time.Minute, "")
 	var pos []string
 	for {
 		if err := fs.Parse(args); err != nil {
@@ -98,7 +105,7 @@ func parseArgs(args []string) (opts, error) {
 		o.argument = pos[1]
 	}
 	switch o.command {
-	case "", "names", "deals", "payments", "swaps", "claims", "mail":
+	case "", "names", "deals", "payments", "swaps", "claims", "mail", "serve":
 		if len(pos) > 1 {
 			return o, fmt.Errorf("%s takes no argument", o.command)
 		}
@@ -156,22 +163,30 @@ func run(o opts, w io.Writer) error {
 	}
 	cache := filepath.Join(dir, fmt.Sprintf("%s-%d.json", orDefault(n.Network, "network"), n.ChainID))
 	s := scan.Load(cache, n)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	var stale error // serve: a failed first update, shown on the page while the cache is served
 	if !o.offline {
-		if err := update(s, n, cache, o.confirmations); err != nil {
-			return err
+		if err := update(ctx, s, n, cache, o.confirmations); err != nil {
+			if o.command != "serve" || s.ToTime == 0 || ctx.Err() != nil {
+				return err
+			}
+			fmt.Fprintln(os.Stderr, "scanner: update:", err, "(serving the cache; trying again every", o.every.String()+")")
+			stale = err
 		}
 	} else if s.ToTime == 0 {
 		return fmt.Errorf("nothing cached for %s yet: run once without --offline", n.Network)
 	}
+	if o.command == "serve" {
+		return serve(ctx, s, n, cache, o, stale)
+	}
 	return show(w, s, o)
 }
 
-func update(s *scan.State, n scan.Net, cache string, confirmations uint64) error {
+func update(ctx context.Context, s *scan.State, n scan.Net, cache string, confirmations uint64) error {
 	if n.RPC == "" {
 		return fmt.Errorf("the network file names no rpc: pass --rpc")
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
 	c, err := ethclient.DialContext(ctx, n.RPC)
 	if err != nil {
 		return err

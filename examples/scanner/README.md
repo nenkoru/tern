@@ -27,11 +27,24 @@ scanner [COMMAND] [flags]
   swaps         swaps, with the price when one side is money
   claims        claims (reviews, ratings, rulings…)
   mail          envelopes and bytes per day
+  serve         a web page with all of it, scanned again every --every
 ```
 
-Flags: `--net FILE` (default `$TERNCHAIN_NET`, then `~/tern/net.json`, then `networks/tern-base-sepolia-1/net.json`), `--rpc URL`, `--json`, `--offline` (only the cache), `--limit N` (rows, newest first; default 50, 0 for all), `--confirmations N` (stay N blocks behind the head; default 3), `--cache DIR`.
+Flags: `--net FILE` (default `$TERNCHAIN_NET`, then `~/tern/net.json`, then `networks/tern-base-sepolia-1/net.json`), `--rpc URL`, `--json`, `--offline` (only the cache), `--limit N` (rows, newest first; default 50, 0 for all), `--confirmations N` (stay N blocks behind the head; default 3), `--cache DIR`, and for `serve`: `--listen ADDR` (default `127.0.0.1:8080`) and `--every D` (default `1m`).
 
 `--json` prints the same thing for programs. With no command it prints everything scanned: names, payments, locks, swaps, claims, mail per day and the tokens seen. Amounts are given in whole units and, in the `*_raw` fields, as integers in the token's smallest unit.
+
+## The web page
+
+```sh
+go run ./examples/scanner serve
+```
+
+Open http://127.0.0.1:8080/. One page, nothing loaded from elsewhere: an overview (counts, recent activity, mail per day), then names, deals, payments, swaps, claims and mail, each filterable. A name links to its page (`#name=alice`): its agents, card, deals, payments and claims. The server reads new blocks every `--every` and the page fetches them; `--offline` serves the cache as it is. If the chain can't be read, the page keeps showing the cache and says why.
+
+The page fetches `/state.json`: the same as `--json`, plus `order` (owners, each followed by its agents), `swap_rows` (both sides and the price) and `every_seconds`.
+
+Everything on the page was written by someone on the network (names, cards, claims). The page puts it in as text, never as markup, and its Content-Security-Policy lets nothing load or run from elsewhere. It listens on 127.0.0.1 by default; put it behind a reverse proxy to share it.
 
 ## What it reads, and what it can't tell
 
@@ -52,5 +65,4 @@ Flags: `--net FILE` (default `$TERNCHAIN_NET`, then `~/tern/net.json`, then `net
 ## Make it yours
 
 - **A price feed.** `swaps --json` gives every settled swap with both sides. A price for a token or an item is an average over a window of these, from distinct owners, above a minimum volume (one trade with yourself must not move it).
-- **A web page.** Serve `--json` (run it every few minutes) and draw it.
 - **Alerts.** Run it from cron with `--json` and compare: a new card with a word you care about, a deal of yours past its refund time, a claim about you.
