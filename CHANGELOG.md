@@ -5,11 +5,13 @@ project's documents.
 
 ## Unreleased
 
-## v0.6.0 release candidate 3 (2026-11-03)
+## v0.6.0 release candidate 4 (2026-11-03)
 
-v0.6.0-rc.2 was tagged but never published as a release, so this is the
-first v0.6.0 release candidate to be published: it also carries rc.2's
-changes (below, "v0.6.0 release candidate 2").
+v0.6.0-rc.2 and v0.6.0-rc.3 were tagged but never published as releases
+(rc.3's release build stopped on the not-yet-deployed `networks/tern-base-1`,
+which the release workflow now skips), so this is the first v0.6.0 release
+candidate to be published: it also carries rc.2's changes (below,
+"v0.6.0 release candidate 2").
 
 A network scanner by 4FR4KO-POVELECKO (pull request #1, the project's first
 outside contribution): `examples/scanner`, a read-only CLI and local web page

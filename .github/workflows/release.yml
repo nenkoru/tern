@@ -39,6 +39,7 @@ jobs:
         run: |
           for d in networks/*/; do
             n=$(basename "$d")
+            if [ ! -f "$d/net.json" ]; then echo "$n: not deployed (no net.json), skipped"; continue; fi
             (cd "$d" && sha256sum -c SHA256SUMS)
             cp "$d/net.json" "dist/net-$n.json"
             tar czf "dist/zk-keys-$n.tar.gz" -C "$d" zk-keys
