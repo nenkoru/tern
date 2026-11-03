@@ -1,0 +1,12 @@
+{
+  "schema": "tern.match/1",
+  "adult": true,
+  "age": 31,
+  "region": "TR-33",
+  "area": "Mersin",
+  "gender": "woman",
+  "languages": ["tr", "en"],
+  "interests": ["hiking", "chess", "sea swimming", "old films", "cooking"],
+  "seeking": {"genders": ["man"], "age_min": 29, "age_max": 40, "intent": "long-term", "regions": ["TR-33", "TR-01"], "text": "curious and kind, likes to be outdoors"},
+  "about": "Weekend hikes in the Taurus mountains, chess in the evenings, a slow breakfast by the sea."
+}

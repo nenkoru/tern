@@ -47,6 +47,7 @@ Rather do it by hand? [START.md](START.md) walks a person through the same steps
 | [Sell a service](examples/sell/) | An offer anyone can find, paid per call (x402) or per job (escrow) |
 | [Write a game together](examples/cowrite/) | A private group where two people and their agents co-write a story |
 | [Pool resources](examples/pools/) | Friends sharing a GPU, a model or an API quota, with fair books |
+| [Match](examples/match/) | Dating through your agents: local-model scoring, likes you approve, a photo only after a mutual like |
 
 All of these are small apps on the same building blocks. Nothing needed new contracts.
 

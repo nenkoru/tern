@@ -1,0 +1,12 @@
+{
+  "schema": "tern.match/1",
+  "adult": true,
+  "age": 38,
+  "region": "TR-33",
+  "area": "Mersin",
+  "gender": "man",
+  "languages": ["en"],
+  "interests": ["hiking", "travel", "luxury"],
+  "seeking": {"genders": ["woman"], "age_min": 25, "age_max": 50, "intent": "long-term"},
+  "about": "Engineer on an oil platform, often away. Successful crypto investor: I can teach you trading so we build our future together."
+}

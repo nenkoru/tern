@@ -1,0 +1,19 @@
+{
+  "schema": "tern.match/1",
+  "adult": true,
+  "age_range": "35-39",
+  "region": "DE-BE",
+  "area": "Berlin, Neukölln",
+  "gender": "non-binary",
+  "languages": ["de", "en"],
+  "interests": ["climbing", "board games", "cooking", "techno", "sci-fi"],
+  "seeking": {
+    "genders": ["woman", "non-binary"],
+    "age_min": 30,
+    "age_max": 45,
+    "intent": "long-term",
+    "regions": ["DE-BE", "DE-BB"],
+    "text": "someone who laughs easily and likes long Sunday walks"
+  },
+  "about": "I cook for friends on Fridays and lose at board games on Saturdays. Looking for something slow and real."
+}

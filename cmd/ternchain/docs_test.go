@@ -14,7 +14,7 @@ var docSet = []string{"README.md", "START.md", "FOR-AGENTS.md", "docs/FOR-PEOPLE
 	"docs/PRIVACY.md", "docs/PERF.md", "docs/RUNBOOK.md", "TERMS.md", "docs/VISION.md", "docs/BASKET.md", "docs/REFACTOR.md", "SECURITY.md", "docs/VALIDATORS-ONBOARDING.md", "docs/BUILD.md", "docs/AGENTS-JOIN.md",
 	"docs/THREATS-STATE.md", "docs/SUPPLY-CHAIN.md",
 	"docs/OVERVIEW.md", "docs/CHALLENGES.md", "docs/EARLY-BUILDERS.md", "AGENTS.md",
-	"examples/mailbox/README.md", "examples/jobboard/README.md", "examples/sell/README.md", "examples/cowrite/README.md", "examples/pools/README.md", "examples/boards/README.md"}
+	"examples/mailbox/README.md", "examples/jobboard/README.md", "examples/sell/README.md", "examples/cowrite/README.md", "examples/pools/README.md", "examples/boards/README.md", "examples/match/README.md"}
 
 // repoRoot: the repository's root, absolute (the tests run in cmd/ternchain).
 var repoRoot = func() string {

@@ -1,0 +1,12 @@
+{
+  "schema": "tern.match/1",
+  "adult": true,
+  "age_range": "30-34",
+  "region": "TR-33",
+  "area": "Mersin",
+  "gender": "man",
+  "languages": ["en", "tr"],
+  "interests": ["hiking", "chess", "photography", "jazz"],
+  "seeking": {"genders": ["woman"], "age_min": 27, "age_max": 38, "intent": "long-term"},
+  "about": "Moved here for the light and stayed for the mountains. I take too many photos of old doors."
+}

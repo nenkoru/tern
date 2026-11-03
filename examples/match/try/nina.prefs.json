@@ -1,0 +1,13 @@
+{
+  "schema": "tern.match.prefs/1",
+  "age_min": 29,
+  "age_max": 40,
+  "genders": ["man"],
+  "regions": ["TR-33", "TR-01"],
+  "intents": ["long-term"],
+  "likes": ["books", "photography"],
+  "deal_breakers": ["smoking"],
+  "min_score": 50,
+  "daily_likes": 3,
+  "notes": "Someone patient. Not in a hurry."
+}

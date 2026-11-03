@@ -1,0 +1,11 @@
+{
+  "schema": "tern.match.prefs/1",
+  "age_min": 27,
+  "age_max": 38,
+  "genders": ["woman"],
+  "regions": ["TR"],
+  "intents": ["long-term", "open"],
+  "likes": ["old films"],
+  "min_score": 50,
+  "daily_likes": 3
+}
