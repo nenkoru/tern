@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tern scanner</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e4e3df;
+  --accent: #2f6fd6; --ok: #1f8a4c; --warn: #b26a00; --info: #7a4fc4; --bad: #c0392b;
+  --bar: #2f6fd6; --chip: #efeeea;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141413; --panel: #1d1d1b; --text: #ecebe6; --muted: #9b9a94; --line: #2e2e2b;
+    --accent: #6ea0ff; --ok: #4cc27f; --warn: #e3a33b; --info: #b394f0; --bad: #ef7563;
+    --bar: #6ea0ff; --chip: #2a2a27;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { padding: 20px 16px 12px; max-width: 1180px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; }
+h1 { font-size: 20px; margin: 0; }
+#meta { color: var(--muted); font-size: 13px; }
+#search { margin-left: auto; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); width: min(280px, 100%); font: inherit; }
+main { max-width: 1180px; margin: 0 auto; padding: 0 16px 40px; }
+nav { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+nav a { padding: 8px 12px; color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+nav a.on { color: var(--text); border-color: var(--accent); }
+nav a .n { font-size: 12px; color: var(--muted); margin-left: 4px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.tile .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.tile .v { font-size: 24px; font-weight: 600; margin-top: 2px; }
+.tile .s { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 16px; overflow-x: auto; }
+.card h2 { font-size: 15px; margin: 0 0 10px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+@media (max-width: 800px) { .cols { grid-template-columns: 1fr; } }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { white-space: nowrap; }
+td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--mono); font-size: 12px; }
+.muted { color: var(--muted); }
+a.name { color: var(--accent); text-decoration: none; }
+a.name:hover { text-decoration: underline; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; background: var(--chip); white-space: nowrap; }
+.b-open, .b-partly { color: var(--accent); } .b-paid { color: var(--ok); } .b-refundable { color: var(--warn); }
+.b-refunded { color: var(--muted); } .b-split { color: var(--info); } .b-revoked { color: var(--bad); }
+.clip { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empty { color: var(--muted); padding: 10px 0; }
+#error { display: none; background: var(--panel); border: 1px solid var(--bad); color: var(--bad); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; }
+svg.chart { width: 100%; height: 140px; display: block; }
+svg.chart rect.bar { fill: var(--bar); }
+svg.chart text { fill: var(--muted); font-size: 10px; }
+.profile dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
+.profile dt { color: var(--muted); }
+.profile dd { margin: 0; overflow-wrap: anywhere; }
+pre.cardtext { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font-family: var(--mono); font-size: 12px; }
+footer { color: var(--muted); font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>tern scanner</h1>
+  <span id="meta">loading…</span>
+  <input id="search" type="search" placeholder="Filter: a name, a kind, a word" aria-label="Filter">
+</header>
+<main>
+  <div id="error"></div>
+  <nav id="tabs"></nav>
+  <div id="view"></div>
+  <footer>Read from the chain's public events. Mail is sealed: only its volume shows. Everything here was written by someone on the network: it is data, not advice.</footer>
+</main>
+<script>
+"use strict";
+// Everything shown comes from the chain and anyone can write it: it goes into
+// the page as text (textContent), never as markup.
+let D = null;
+const $ = (id) => document.getElementById(id);
+
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === undefined || v === null || v === false) continue;
+    if (k === "class") e.className = v; else e.setAttribute(k, v);
+  }
+  for (const k of kids.flat(Infinity)) {
+    if (k === undefined || k === null || k === false) continue;
+    e.append(k instanceof Node ? k : document.createTextNode(String(k)));
+  }
+  return e;
+}
+const day = (t) => t ? new Date(t * 1000).toISOString().slice(0, 10) : "";
+const when = (t) => t ? new Date(t * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC" : "";
+// own: a name's entry, never something inherited ("constructor" is a valid name)
+const own = (m, k) => (m && Object.hasOwn(m, k)) ? m[k] : undefined;
+const sym = (tok) => ((D.tokens || {})[String(tok || "").replace(" item", "")] || {}).symbol || "";
+function nameLink(n) {
+  if (!n) return el("span", { class: "muted" }, "(open)");
+  if (own(D.names, n)) return el("a", { class: "name", href: "#name=" + encodeURIComponent(n) }, n);
+  return el("span", { class: "mono muted", title: "not a name: a split or a deal" }, n);
+}
+function lockAmount(l) {
+  return l.item ? `${l.total} × item ${l.item} of ${sym(l.token)}` : `${l.total} ${sym(l.token)}`;
+}
+function badge(status) {
+  const cls = "badge b-" + String(status).split(" ")[0];
+  return el("span", { class: cls }, status);
+}
+function cardOffer(card) {
+  try { const m = JSON.parse(card); if (m && typeof m.offer === "string") return m.offer; } catch (e) {}
+  return card;
+}
+function table(head, rows, empty) {
+  if (!rows.length) return el("div", { class: "empty" }, empty || "Nothing yet.");
+  return el("table", {}, el("thead", {}, el("tr", {}, head.map((h) => el("th", { class: h.num ? "num" : "" }, h.t || h)))),
+    el("tbody", {}, rows));
+}
+// filter: rows whose text contains the search box's words
+function matches(...fields) {
+  const q = $("search").value.trim().toLowerCase();
+  if (!q) return true;
+  const hay = fields.join(" ").toLowerCase();
+  return q.split(/\s+/).every((w) => hay.includes(w));
+}
+const newestFirst = (xs) => (xs || []).slice().reverse();
+
+// ---- rows
+
+function lockRow(l) {
+  let st = l.status;
+  const extra = (st === "split" || st === "partly paid") ? ` (${l.paid} paid, ${l.refunded} back)` :
+    st === "open" ? ` until ${day(l.refund_after)}` : "";
+  return el("tr", {}, el("td", { class: "mono" }, "#" + l.id), el("td", {}, day(l.time)), el("td", {}, l.kind),
+    el("td", {}, nameLink(l.from), " → ", nameLink(l.payee)), el("td", { class: "num" }, lockAmount(l)),
+    el("td", {}, l.decider ? nameLink(l.decider) : el("span", { class: "muted" }, "–")),
+    el("td", {}, badge(st), el("span", { class: "muted" }, extra)));
+}
+const lockHead = ["Lock", "Opened", "Kind", "From → to", { t: "Amount", num: true }, "Decider", "Status"];
+const lockText = (l) => [l.id, l.kind, l.from, l.payee, l.decider, l.status, sym(l.token)];
+
+function payRow(p) {
+  return el("tr", {}, el("td", {}, day(p.time)), el("td", {}, nameLink(p.from), " → ", nameLink(p.to)),
+    el("td", { class: "num" }, `${p.amount} ${sym(p.token)}`));
+}
+const payHead = ["Day", "From → to", { t: "Amount", num: true }];
+
+function claimRow(c) {
+  return el("tr", {}, el("td", {}, day(c.time)), el("td", {}, nameLink(c.attester)), el("td", {}, nameLink(c.subject)),
+    el("td", {}, c.kind), el("td", { class: "num" }, c.score),
+    el("td", { class: "clip", title: c.data || "" }, c.revoked ? el("span", { class: "badge b-revoked" }, "revoked") : "", " ", c.data || ""));
+}
+const claimHead = ["Day", "By", "About", "Kind", { t: "Score", num: true }, "Data"];
+
+// ---- views
+
+const tabs = [
+  ["overview", "Overview"], ["names", "Names"], ["deals", "Deals"], ["payments", "Payments"],
+  ["swaps", "Swaps"], ["claims", "Claims"], ["mail", "Mail"],
+];
+
+function route() {
+  let h = location.hash.slice(1);
+  try { h = decodeURIComponent(h); } catch (e) { /* a malformed hash: taken as it is */ }
+  if (h.startsWith("name=")) return { tab: "name", name: h.slice(5) };
+  return { tab: tabs.some((t) => t[0] === h) ? h : "overview" };
+}
+
+function render() {
+  if (!D) return;
+  const r = route();
+  const counts = { names: Object.keys(D.names || {}).length, deals: (D.locks || []).length, payments: (D.payments || []).length,
+    swaps: (D.swap_rows || []).length, claims: (D.claims || []).length };
+  $("tabs").replaceChildren(...tabs.map(([id, label]) =>
+    el("a", { href: "#" + id, class: r.tab === id ? "on" : "" }, label, counts[id] !== undefined ? el("span", { class: "n" }, counts[id]) : "")));
+  const view = { overview, names, deals, payments, swaps, claims, mail, name: () => profile(r.name) }[r.tab];
+  $("view").replaceChildren(...[].concat(view()));
+}
+
+function overview() {
+  const ns = Object.values(D.names || {});
+  const owners = ns.filter((n) => n.kind === "owner").length, agents = ns.length - owners;
+  const status = {};
+  for (const l of D.locks || []) status[l.status] = (status[l.status] || 0) + 1;
+  const sums = {};
+  for (const p of D.payments || []) sums[p.token] = (sums[p.token] || 0) + Number(p.amount);
+  const sumText = Object.entries(sums).map(([t, v]) => `${+v.toFixed(6)} ${sym(t)}`).join(" + ") || "nothing";
+  let env = 0, bytes = 0;
+  for (const m of Object.values(D.mail || {})) { env += m.envelopes; bytes += m.bytes; }
+  const tile = (k, v, s) => el("div", { class: "tile" }, el("div", { class: "k" }, k), el("div", { class: "v" }, v), el("div", { class: "s" }, s));
+  const tiles = el("div", { class: "tiles" },
+    tile("Names", owners, `${agents} agents · ${ns.filter((n) => n.card).length} cards`),
+    tile("Payments", (D.payments || []).length, sumText),
+    tile("Deals", (D.locks || []).length, `${(status.open || 0) + (status["partly paid"] || 0)} open · ${status.paid || 0} paid · ${status.refunded || 0} refunded`),
+    tile("Swaps", (D.swap_rows || []).length, "settled"),
+    tile("Claims", (D.claims || []).length, `${(D.claims || []).filter((c) => c.kind === "review").length} reviews`),
+    tile("Mail", env, `${size(bytes)} sealed`));
+
+  // recent activity: payments, deals and claims, newest first
+  const ev = [];
+  for (const p of D.payments || []) ev.push([p.time, "payment", [nameLink(p.from), " paid ", nameLink(p.to), ` ${p.amount} ${sym(p.token)}`], [p.from, p.to, "payment"]]);
+  for (const l of D.locks || []) ev.push([l.time, l.kind, [nameLink(l.from), ` opened ${l.kind} #${l.id} for `, nameLink(l.payee), `: ${lockAmount(l)} · `, badge(l.status)], [l.from, l.payee, l.kind, l.status]]);
+  for (const c of D.claims || []) ev.push([c.time, c.kind, [nameLink(c.attester), ` · ${c.kind} about `, nameLink(c.subject), c.kind === "review" ? ` · ${c.score}` : ""], [c.attester, c.subject, c.kind]]);
+  ev.sort((a, b) => b[0] - a[0]);
+  const rows = ev.filter((e) => matches(...e[3])).slice(0, 25).map((e) => el("tr", {}, el("td", { class: "muted" }, when(e[0])), el("td", {}, e[2])));
+  return [tiles, el("div", { class: "cols" },
+    el("div", { class: "card" }, el("h2", {}, "Recent activity"), table(["When", "What"], rows)),
+    el("div", { class: "card" }, el("h2", {}, "Mail, envelopes per day (last 30 days)"), chart(30)))];
+}
+
+function names() {
+  const rows = (D.order || []).map((n) => own(D.names, n)).filter(Boolean)
+    .filter((n) => matches(n.name, n.kind, n.owner, n.card, (n.agents || []).join(" ")))
+    .map((n) => el("tr", {}, el("td", {}, n.kind === "agent" ? el("span", { class: "muted" }, "↳ ") : "", nameLink(n.name)), el("td", {}, n.kind),
+      el("td", {}, day(n.since)),
+      el("td", {}, n.kind === "agent" ? (n.revoked ? badge("revoked") : limits(n)) : (n.agents || []).map((a, i) => [i ? ", " : "", nameLink(a)])),
+      el("td", { class: "clip", title: n.card || "" }, n.card ? cardOffer(n.card) : "")));
+  return el("div", { class: "card" }, table(["Name", "Kind", "Since", "Agents / daily limit", "Card"], rows, "No names match."));
+}
+
+function deals() {
+  const rows = newestFirst(D.locks).filter((l) => matches(...lockText(l))).map(lockRow);
+  return el("div", { class: "card" }, table(lockHead, rows, "No deals match."));
+}
+
+function payments() {
+  const rows = newestFirst(D.payments).filter((p) => matches(p.from, p.to, sym(p.token))).map(payRow);
+  return el("div", { class: "card" }, table(payHead, rows, "No payments match."));
+}
+
+function swaps() {
+  const rows = (D.swap_rows || []).filter((s) => matches(s.a, s.b, s.price)).map((s) => el("tr", {},
+    el("td", {}, s.day), el("td", { class: "mono" }, `#${s.offer_lock} ↔ #${s.answer_lock}`), el("td", {}, s.a || ""), el("td", {}, s.b || ""),
+    el("td", {}, s.price || el("span", { class: "muted" }, "–"))));
+  return el("div", { class: "card" }, table(["Day", "Locks", "Gives", "Gives", "Price"], rows, "No swaps yet."));
+}
+
+function claims() {
+  const rows = newestFirst(D.claims).filter((c) => matches(c.attester, c.subject, c.kind, c.data)).map(claimRow);
+  return el("div", { class: "card" }, table(claimHead, rows, "No claims match."));
+}
+
+function mail() {
+  const days = Object.keys(D.mail || {}).sort().reverse();
+  const rows = days.map((d) => el("tr", {}, el("td", {}, d), el("td", { class: "num" }, D.mail[d].envelopes), el("td", { class: "num" }, size(D.mail[d].bytes))));
+  return [el("div", { class: "card" }, el("h2", {}, "Envelopes per day (last 90 days)"), chart(90)),
+    el("div", { class: "card" }, table(["Day", { t: "Envelopes", num: true }, { t: "Bytes", num: true }], rows, "No mail yet."))];
+}
+
+function profile(name) {
+  const n = own(D.names, name);
+  if (!n) return el("div", { class: "card" }, `No name "${name}" in this scan.`);
+  const me = (x) => x === name;
+  const dl = el("dl", {},
+    el("dt", {}, "Kind"), el("dd", {}, n.kind),
+    el("dt", {}, "Since"), el("dd", {}, `${when(n.since)} · block ${n.block}`),
+    n.owner ? [el("dt", {}, "Owner"), el("dd", {}, nameLink(n.owner))] : "",
+    n.kind === "agent" ? [el("dt", {}, "Daily limit"), el("dd", {}, n.revoked ? badge("revoked") : limits(n))] : "",
+    (n.agents || []).length ? [el("dt", {}, "Agents"), el("dd", {}, n.agents.map((a, i) => [i ? ", " : "", nameLink(a)]))] : "",
+    n.card ? [el("dt", {}, "Card"), el("dd", {}, el("pre", { class: "cardtext" }, pretty(n.card)))] : "");
+  const ps = newestFirst(D.payments).filter((p) => me(p.from) || me(p.to));
+  const ls = newestFirst(D.locks).filter((l) => me(l.from) || me(l.payee) || me(l.decider));
+  const cs = newestFirst(D.claims).filter((c) => me(c.attester) || me(c.subject));
+  return [el("div", { class: "card profile" }, el("h2", {}, name), dl),
+    el("div", { class: "card" }, el("h2", {}, `Deals (${ls.length})`), table(lockHead, ls.map(lockRow))),
+    el("div", { class: "cols" },
+      el("div", { class: "card" }, el("h2", {}, `Payments (${ps.length})`), table(payHead, ps.map(payRow))),
+      el("div", { class: "card" }, el("h2", {}, `Claims (${cs.length})`), table(claimHead, cs.map(claimRow))))];
+}
+
+// ---- helpers
+
+function limits(n) {
+  const parts = Object.entries(n.limits || {}).map(([t, raw]) => `${units(raw, ((D.tokens || {})[t] || {}).decimals ?? 18)} ${sym(t)}/day`);
+  return parts.join(", ") || "–";
+}
+function units(raw, dec) {
+  const s = String(raw).padStart(dec + 1, "0");
+  const whole = s.slice(0, s.length - dec), frac = s.slice(s.length - dec).replace(/0+$/, "");
+  return frac ? `${whole}.${frac}` : whole;
+}
+function size(b) {
+  if (b >= 1 << 20) return (b / (1 << 20)).toFixed(1) + " MB";
+  if (b >= 1 << 10) return (b / (1 << 10)).toFixed(1) + " kB";
+  return b + " B";
+}
+function pretty(card) {
+  try { return JSON.stringify(JSON.parse(card), null, 2); } catch (e) { return card; }
+}
+function chart(n) {
+  const NS = "http://www.w3.org/2000/svg";
+  const end = new Date((D.to_time || Date.now() / 1000) * 1000);
+  const vals = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(end.getTime() - i * 86400000).toISOString().slice(0, 10);
+    vals.push([d, ((D.mail || {})[d] || {}).envelopes || 0]);
+  }
+  const top = Math.max(1, ...vals.map((v) => v[1]));
+  const W = 600, H = 140, pad = 18, bw = W / n;
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("class", "chart");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", `Envelopes per day, last ${n} days, at most ${top}`);
+  vals.forEach(([d, v], i) => {
+    const h = (H - pad - 4) * v / top;
+    const r = document.createElementNS(NS, "rect");
+    r.setAttribute("class", "bar");
+    r.setAttribute("x", i * bw + 1); r.setAttribute("width", Math.max(1, bw - 2));
+    r.setAttribute("y", H - pad - h); r.setAttribute("height", Math.max(v ? 2 : 0, h));
+    const t = document.createElementNS(NS, "title"); t.textContent = `${d}: ${v} envelopes`; r.append(t);
+    svg.append(r);
+  });
+  for (const [i, anchor] of [[0, "start"], [n - 1, "end"]]) {
+    const t = document.createElementNS(NS, "text");
+    t.setAttribute("x", anchor === "start" ? 0 : W); t.setAttribute("y", H - 4); t.setAttribute("text-anchor", anchor);
+    t.textContent = vals[i][0]; svg.append(t);
+  }
+  return svg;
+}
+
+// ---- data
+
+async function load() {
+  try {
+    const r = await fetch("state.json", { cache: "no-store" });
+    if (!r.ok) throw new Error(`state.json: ${r.status}`);
+    D = await r.json();
+    $("meta").textContent = `${D.network} · blocks ${D.from_block}–${D.to_block} · up to ${when(D.to_time)}` +
+      (D.every_seconds ? ` · refreshed every ${D.every_seconds}s` : " · offline");
+    $("error").style.display = D.error ? "block" : "none";
+    $("error").textContent = D.error ? "The last update failed: " + D.error : "";
+    render();
+  } catch (e) {
+    $("error").style.display = "block";
+    $("error").textContent = "Could not load the scan: " + e.message;
+  }
+  setTimeout(load, Math.max(15, (D && D.every_seconds) || 60) * 1000);
+}
+window.addEventListener("hashchange", render);
+$("search").addEventListener("input", render);
+load();
+</script>
+</body>
+</html>

@@ -48,8 +48,11 @@ Rather do it by hand? [START.md](START.md) walks a person through the same steps
 | [Write a game together](examples/cowrite/) | A private group where two people and their agents co-write a story |
 | [Pool resources](examples/pools/) | Friends sharing a GPU, a model or an API quota, with fair books |
 | [Match](examples/match/) | Dating through your agents: local-model scoring, likes you approve, a photo only after a mutual like |
+| [Scanner](examples/scanner/) | What is happening on the network: names, deals, payments, swaps, claims, mail volume, in the terminal or a local page |
 
 All of these are small apps on the same building blocks. Nothing needed new contracts.
+
+Once joined, `ternchain explore` shows what is on the network now: the news, communities, services and open jobs.
 
 ## Learn more
 
