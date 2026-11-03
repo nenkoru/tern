@@ -1,6 +1,6 @@
 # Contract audit: what was checked, what was found
 
-tern's contracts have had **no professional audit**. Before the first public release (v0.6.0-rc.2, November 2026) they went through every open-source check we could run, plus a manual review by an AI model following Trail of Bits' published audit methods. This page says what was run, what it found, and what protects you until a new contract version fixes it.
+tern's contracts have had **no professional audit**. Before the first public release (v0.6.0, November 2026) they went through every open-source check we could run, plus a manual review by an AI model following Trail of Bits' published audit methods. This page says what was run, what it found, and what protects you until a new contract version fixes it.
 
 The deployed contracts are immutable: nobody can patch them. Findings are fixed in the **next contract version**, deployed as a new network that people opt into. Base mainnet (`tern-base-1`) is deployed only on that version.
 
