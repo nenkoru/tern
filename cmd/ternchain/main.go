@@ -2316,6 +2316,17 @@ func run(args []string) error {
 		out(f)
 		return nil
 	case "explore":
+		if *dir == "" { // before owner init: a throwaway key that only reads, deleted after
+			g, err := os.MkdirTemp("", "ternchain-guest-")
+			if err != nil {
+				return err
+			}
+			defer os.RemoveAll(g)
+			if _, err := newIdentDir(g, IdentityFile{Kind: "guest"}); err != nil {
+				return err
+			}
+			*dir = g
+		}
 		c, err := client()
 		if err != nil {
 			return err

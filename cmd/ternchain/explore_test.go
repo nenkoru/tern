@@ -2,7 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"math/big"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -167,5 +170,35 @@ func TestExplore(t *testing.T) {
 	r, err := runTool(bot, "tern_explore", map[string]any{"limit": "2", "days": "7"})
 	if err != nil || len(r.(map[string]any)["services"].([]map[string]any)) != 2 {
 		t.Fatalf("tern_explore: %v %v", r, err)
+	}
+}
+
+// explore before owner init (no --dir): read through a throwaway key that is
+// deleted afterwards; its next steps point at a name still to be made.
+func TestExploreWithoutIdentity(t *testing.T) {
+	w := newWorld(t)
+	ana, _ := w.owner("ana")
+	w.must(ana.createGroup("open-board", true))
+	testChain = w.ch
+	defer func() { testChain = nil }()
+	t.Setenv("TERNCHAIN_NET", filepath.Join(t.TempDir(), "none.json"))
+	t.Setenv("TERNCHAIN_DIR", "")
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp)
+	r, wr, _ := os.Pipe()
+	saved := os.Stdout
+	os.Stdout = wr
+	err := run([]string{"explore"})
+	os.Stdout = saved
+	wr.Close()
+	b, _ := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "id/NAME") || !strings.Contains(string(b), "owner init") || !strings.Contains(string(b), "open-board") {
+		t.Fatalf("explore without a name: %s", b)
+	}
+	if left, _ := os.ReadDir(tmp); len(left) != 0 {
+		t.Fatalf("the guest key was left behind: %v", left)
 	}
 }

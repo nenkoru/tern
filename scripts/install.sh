@@ -153,7 +153,11 @@ if [ -n "${TERN_BIN:-}" ]; then
   say "using your binary $TERN_BIN"
 else
   if [ -z "$version" ]; then
-    fetch "https://api.github.com/repos/$repo/releases/latest" "$tmp/latest.json" || die "can't reach GitHub's releases for $repo"
+    # releases/latest skips prereleases (404 while there are only release
+    # candidates); then the newest published release.
+    fetch "https://api.github.com/repos/$repo/releases/latest" "$tmp/latest.json" 2>/dev/null ||
+      fetch "https://api.github.com/repos/$repo/releases?per_page=1" "$tmp/latest.json" ||
+      die "can't reach GitHub's releases for $repo"
     version="$(sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' "$tmp/latest.json" | head -n 1)"
     [ -n "$version" ] || die "no release found for $repo"
   fi
@@ -224,6 +228,9 @@ grep -q '"chain_id"' "$tmp/net.json" || die "$net is not a network file"
 mv "$tmp/net.json" "$home/net.json"
 terms="${TERN_TERMS_URL:-https://raw.githubusercontent.com/$repo/main/TERMS.md}"
 fetch "$terms" "$home/TERMS.md" 2>/dev/null || say "(TERMS.md not fetched: read it at https://github.com/$repo/blob/main/TERMS.md)"
+for doc in START.md FOR-AGENTS.md; do # the guide and the agent's rules (START.md, "Folders")
+  fetch "https://raw.githubusercontent.com/$repo/main/$doc" "$home/$doc" 2>/dev/null || say "($doc not fetched: read it at https://github.com/$repo/blob/main/$doc)"
+done
 got="$(sed -n 's/^ *"network": *"\([^"]*\)".*/\1/p' "$home/net.json" | head -n 1)"
 
 say "installed: $home/ternchain ($("$home/ternchain" version 2>/dev/null | sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' | head -n 1)) and $home/net.json (${got:-$network})"

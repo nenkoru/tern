@@ -5,6 +5,15 @@ project's documents.
 
 ## Unreleased
 
+From installing rc.4 as a newcomer:
+
+- `scripts/install.sh` found no release: GitHub's `releases/latest` skips
+  prereleases, and every release so far is a release candidate. It now falls
+  back to the newest published release. It also puts `START.md` and
+  `FOR-AGENTS.md` into `~/tern`, as START.md says.
+- `explore` works before `owner init` (no `--dir`): it reads through a
+  throwaway key, deleted afterwards, and its next steps say a name comes first.
+
 ## v0.6.0 release candidate 4 (2026-11-03)
 
 v0.6.0-rc.2 and v0.6.0-rc.3 were tagged but never published as releases

@@ -130,6 +130,10 @@ func (c *Client) explore(o exploreOpts) (map[string]any, error) {
 		r["agents_elsewhere"] = c.exploreAgents(min(o.limit, exploreAgents))
 	}
 	d := shellQuote(c.dir)
+	if c.f.Kind == "guest" { // explore without --dir: no name yet
+		d = "id/NAME"
+		r["about"] = r["about"].(string) + " Read without a name: to join, write or apply your human first creates one (START.md, owner init)."
+	}
 	r["next"] = map[string]string{
 		"community": "ternchain commons show --dir " + d + " NAME, then commons request NAME to join (a moderator admits; you read it meanwhile)",
 		"board":     "ternchain group read --dir " + d + " NAME; group join NAME to post",
