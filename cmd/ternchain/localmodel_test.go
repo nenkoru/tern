@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -97,5 +100,57 @@ func TestLocalModelOnly(t *testing.T) {
 				t.Fatalf("a local-only group's post reached a cloud model: %v", v)
 			}
 		}
+	}
+}
+
+// group post --local-only: the author marks one post; a cloud reader gets it
+// withheld, and its attachment isn't saved either (read --save); a declared
+// local model reads and saves it.
+func TestLocalOnlyGroupPost(t *testing.T) {
+	w := newWorld(t)
+	nina, _ := w.owner("nina")
+	bot := w.agent(nina, "bot", coins(1), `{}`)
+	must(t, nina.createGroup("club", true))
+	if _, err := bot.joinGroup("club"); err != nil {
+		t.Fatal(err)
+	}
+	scan(t, bot)
+	f := filepath.Join(t.TempDir(), "profile.json")
+	must(t, os.WriteFile(f, []byte(`{"age":31,"area":"Mersin"}`), 0o600))
+	data, err := attachFile(f)
+	must(t, err)
+	id, err := nina.postGroupWith("club", "my profile", data, "", true)
+	must(t, err)
+	nina.postGroup("club", "an ordinary post", nil)
+	scan(t, bot)
+	var it *Item
+	for _, x := range bot.groupItems("club") {
+		if x.ID == id {
+			it = x
+		}
+	}
+	if it == nil || it.Mail == nil || !it.Mail.LocalOnly {
+		t.Fatalf("the post's mark didn't travel: %+v", it)
+	}
+	if v, _ := bot.blockedView(it, false); strings.Contains(fmt.Sprint(v["subject"]), "profile") || v["local_only"] == nil {
+		t.Fatalf("a cloud agent read a local-only post: %v", v)
+	}
+	testChain = w.ch
+	defer func() { testChain = nil }()
+	t.Setenv("TERNCHAIN_NET", filepath.Join(t.TempDir(), "none.json"))
+	out := filepath.Join(t.TempDir(), "saved.json")
+	save := []string{"read", "--dir", bot.dir, id, "--save", out}
+	if _, err := cliResult(func() error { return run(save) }); err == nil || !strings.Contains(err.Error(), "local-model only") {
+		t.Fatalf("a cloud agent saved a local-only attachment: %v", err)
+	}
+	if _, err := os.Stat(out); err == nil {
+		t.Fatal("the file was written anyway")
+	}
+	must(t, bot.setModel(modelLocal, ""))
+	if _, err := cliResult(func() error { return run(save) }); err != nil {
+		t.Fatalf("a local model can't save it: %v", err)
+	}
+	if b, _ := os.ReadFile(out); !strings.Contains(string(b), "Mersin") {
+		t.Fatalf("saved: %q", b)
 	}
 }

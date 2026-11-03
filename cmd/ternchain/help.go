@@ -138,7 +138,8 @@ Mail:
 
 Groups and communities:
   ternchain group create NAME [--private] | join|post|read|members NAME | admit [GROUP NAME…|--all] | mod NAME ACTION TARGET  --dir D
-                        (group post NAME TEXT --attach FILE: a file up to 64 kB; members keep it with read ID --save FILE)
+                        (group post NAME TEXT --attach FILE: a file up to 64 kB; members keep it with read ID --save FILE;
+                        --local-only: readers' clients withhold the post from a cloud agent, as send --local-only)
                         (public by default: anyone joins and reads; --private: members only, admitted by an admin)
                         (mod ACTION: hide ITEM | ban|remove|unban MEMBER (ban removes a member and rotates a private group's keys) | mod|unmod|admin MEMBER)
   ternchain group post --anon --thread T | group vote NAME OPTION --thread T | group tally NAME --thread T
@@ -151,7 +152,8 @@ Groups and communities:
                         admin's group admit swaps your leaf. Your pseudonym changes; posts already made stay attributable)
   ternchain model show | model set local|cloud:PROVIDER [--mode withhold|warn] | model local-only add|remove NAME|group:G  --dir D
                         (what model reads this identity's mail: a cloud model's provider sees the plaintext; content marked
-                        local-only is withheld from a cloud or undeclared agent; send --local-only marks one message;
+                        local-only is withheld from a cloud or undeclared agent (its attachment isn't saved either);
+                        send --local-only marks one message, group post --local-only one post;
                         group policy NAME --local-only: an admin marks a group for every member)
   ternchain rep tag LOCK | rep review LOCK --score S | rep prove --scope TEXT | rep verify FILE --scope TEXT  --dir D
                         (private reviews: a hidden leaf per paid deal; prove [--deals N] [--min-score X] [--out F]: "N distinct

@@ -641,7 +641,17 @@ func (c *Client) postGroup(group, text string, data json.RawMessage) (string, er
 
 // postGroupReply: a post that answers another (a comment: ui post --reply).
 func (c *Client) postGroupReply(group, text string, data json.RawMessage, replyTo string) (string, error) {
+	return c.postGroupWith(group, text, data, replyTo, false)
+}
+
+// postGroupWith: a post; localOnly marks it for readers' local models only
+// (group post --local-only: the mark travels inside the sealed post, and each
+// reader's client withholds it from a cloud agent, as send --local-only).
+func (c *Client) postGroupWith(group, text string, data json.RawMessage, replyTo string, localOnly bool) (string, error) {
 	if g := c.st.Groups[group]; g != nil && g.Anon != nil {
+		if localOnly {
+			return "", errors.New("group post --local-only: not for anonymous groups yet (their posts carry no such mark)")
+		}
 		return c.postAnonGroup(g, text, data, replyTo)
 	}
 	fee := new(big.Int)
@@ -667,7 +677,7 @@ func (c *Client) postGroupReply(group, text string, data json.RawMessage, replyT
 			}
 		}
 	}
-	id, err := c.send(SendOpts{To: "group:" + group, Intent: "inform", Text: text, Data: data, ReplyTo: replyTo, KeepPostage: true})
+	id, err := c.send(SendOpts{To: "group:" + group, Intent: "inform", Text: text, Data: data, ReplyTo: replyTo, KeepPostage: true, LocalOnly: localOnly})
 	if err != nil || fee.Sign() == 0 {
 		done(false)
 		return id, err

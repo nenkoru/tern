@@ -1334,6 +1334,11 @@ func run(args []string) error {
 			*outFile = *outF
 		}
 		if *outFile != "" && it.Mail != nil { // read ID --save FILE: keep the attachment
+			if why := c.localOnly(it); why != "" && c.cloudModel() && c.f.LocalOnlyMode != localOnlyWarn {
+				// a saved file is one cat away from the model's provider: withheld like the text
+				return fmt.Errorf("local-model only: %s, and this agent's model counts as cloud: its attachment isn't saved here. "+
+					"Your owner saves it on its own device, or declares a local model (model set local --dir %s --owner-dir OWNER-DIR)", why, *dir)
+			}
 			at, err := saveAttachment(it.Mail.Data, *outFile)
 			if err != nil {
 				return err
@@ -1728,11 +1733,14 @@ func run(args []string) error {
 				out(map[string]any{"posted": id, "group": g, "as": "an anonymous member"})
 				return nil
 			}
-			id, err := c.postGroup(g, strings.Join(pos[1:], " "), data)
+			id, err := c.postGroupWith(g, strings.Join(pos[1:], " "), data, "", *localOnlyF)
 			if err != nil {
 				return err
 			}
 			v := map[string]any{"posted": id, "group": g}
+			if *localOnlyF {
+				v["local_only"] = "marked: readers' clients withhold it from a cloud or undeclared agent (a request between honest clients)"
+			}
 			if data != nil {
 				v["attachment"] = filepath.Base(*attach) + ": members keep it with 'read " + id[:18] + " --save FILE'"
 			}

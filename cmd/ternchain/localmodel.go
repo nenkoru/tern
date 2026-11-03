@@ -3,6 +3,7 @@
 //	model show | model set local|cloud:PROVIDER [--mode withhold|warn]   what model reads this identity's mail
 //	model local-only add|remove NAME|group:G                             mark a correspondent's or a group's content
 //	send --local-only …                                                  mark one message (the recipient's client enforces it)
+//	group post --local-only …                                            mark one post (each reader's client enforces it)
 //	group policy NAME --local-only[=false]                               a group's admin marks the group (sent with its keys)
 //
 // A cloud model's provider sees everything the agent reads, and a subpoena to
