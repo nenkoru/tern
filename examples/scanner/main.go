@@ -11,17 +11,15 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
 	"text/tabwriter"
 	"time"
-
-	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/nenkoru/tern/internal/scan"
 )
@@ -44,7 +42,7 @@ flags:
   --json            the same as JSON (with no command: everything scanned)
   --offline         show the cache, don't read the chain
   --cache DIR       where the scan is kept (default the user cache directory, ternscan/)
-  --confirmations N stay N blocks behind the head (default 3)
+  --confirmations N stay N blocks behind the head (default 64: no reorg reaches that deep)
   --limit N         at most N rows, newest first (default 50; 0: all)
   --listen ADDR     serve: where (default 127.0.0.1:8080)
   --every D         serve: how often to read new blocks (default 1m)
@@ -82,7 +80,7 @@ func parseArgs(args []string) (opts, error) {
 	fs.StringVar(&o.cache, "cache", "", "")
 	fs.BoolVar(&o.json, "json", false, "")
 	fs.BoolVar(&o.offline, "offline", false, "")
-	fs.Uint64Var(&o.confirmations, "confirmations", 3, "")
+	fs.Uint64Var(&o.confirmations, "confirmations", 64, "")
 	fs.IntVar(&o.limit, "limit", 50, "")
 	fs.StringVar(&o.listen, "listen", "127.0.0.1:8080", "")
 	fs.DurationVar(&o.every, "every", time.Minute, "")
@@ -163,7 +161,7 @@ func run(o opts, w io.Writer) error {
 		}
 		dir = filepath.Join(dir, "ternscan")
 	}
-	cache := filepath.Join(dir, fmt.Sprintf("%s-%d.json", orDefault(n.Network, "network"), n.ChainID))
+	cache := filepath.Join(dir, fmt.Sprintf("%s-%d.json", fileName(n.Network), n.ChainID))
 	s := scan.Load(cache, n)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
@@ -204,7 +202,7 @@ func update(ctx context.Context, s *scan.State, n scan.Net, cache string, confir
 			break
 		}
 		if i < len(urls)-1 {
-			fmt.Fprintf(os.Stderr, "scanner: %s: %v; trying %s\n", host(u), err, host(urls[i+1]))
+			fmt.Fprintf(os.Stderr, "scanner: %s: %v; trying %s\n", scan.Origin(u), err, scan.Origin(urls[i+1]))
 		}
 	}
 	if ctx.Err() != nil {
@@ -213,15 +211,14 @@ func update(ctx context.Context, s *scan.State, n scan.Net, cache string, confir
 	return err
 }
 
-func host(u string) string {
-	if p, err := url.Parse(u); err == nil && p.Host != "" {
-		return p.Host
-	}
-	return u
+// updateFrom: one rpc's turn. Its errors are redacted: an RPC's URL may hold
+// its provider's key, and these errors go to the terminal and the page.
+func updateFrom(ctx context.Context, s *scan.State, n scan.Net, rpc, cache string, confirmations uint64) error {
+	return scan.Redact(updateFromRPC(ctx, s, n, rpc, cache, confirmations))
 }
 
-func updateFrom(ctx context.Context, s *scan.State, n scan.Net, rpc, cache string, confirmations uint64) error {
-	c, err := ethclient.DialContext(ctx, rpc)
+func updateFromRPC(ctx context.Context, s *scan.State, n scan.Net, rpc, cache string, confirmations uint64) error {
+	c, err := scan.Dial(ctx, rpc)
 	if err != nil {
 		return err
 	}
@@ -326,7 +323,7 @@ func summary(w io.Writer, s *scan.State) {
 	fmt.Fprintf(t, "Swaps\t%d\n", len(s.Swaps))
 	ck := map[string]int{}
 	for _, c := range s.Claims {
-		ck[c.Kind]++
+		ck[scan.Printable(c.Kind)]++
 	}
 	fmt.Fprintf(t, "Claims\t%d", len(s.Claims))
 	if len(ck) > 0 {
@@ -398,7 +395,7 @@ func oneName(w io.Writer, s *scan.State, o opts) error {
 		fmt.Fprintf(w, "agents: %s\n", strings.Join(n.Agents, ", "))
 	}
 	if n.Card != "" {
-		fmt.Fprintf(w, "card: %s\n", n.Card)
+		fmt.Fprintf(w, "card: %s\n", scan.Printable(n.Card))
 	}
 	section := func(title string, k int, f func()) {
 		fmt.Fprintf(w, "\n%s (%d)\n", title, k)
@@ -489,11 +486,11 @@ func claims(w io.Writer, cs []*scan.Claim) {
 	t := tab(w)
 	fmt.Fprintln(t, "DAY\tBY\tABOUT\tKIND\tSCORE\tDATA")
 	for _, c := range cs {
-		data := strings.ReplaceAll(c.Data, "\n", " ")
+		data := scan.Printable(c.Data)
 		if c.Revoked {
 			data = "(revoked) " + data
 		}
-		fmt.Fprintf(t, "%s\t%s\t%s\t%s\t%d\t%s\n", scan.Day(c.Time), c.Attester, c.Subject, c.Kind, c.Score, clip(data, 60))
+		fmt.Fprintf(t, "%s\t%s\t%s\t%s\t%d\t%s\n", scan.Day(c.Time), c.Attester, c.Subject, scan.Printable(c.Kind), c.Score, clip(data, 60))
 	}
 	t.Flush()
 }
@@ -566,10 +563,10 @@ func cardLine(card string) string {
 	var m map[string]any
 	if json.Unmarshal([]byte(card), &m) == nil {
 		if o, ok := m["offer"].(string); ok {
-			return clip(o, 50)
+			return clip(scan.Printable(o), 50)
 		}
 	}
-	return clip(card, 50)
+	return clip(scan.Printable(card), 50)
 }
 
 func lockAmount(s *scan.State, l *scan.Lock) string {
@@ -671,6 +668,16 @@ func clip(s string, n int) string {
 		return string(r[:n]) + "…"
 	}
 	return s
+}
+
+// fileName: a network's name as a file name ("network" when it isn't a plain one).
+var fileNameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
+
+func fileName(network string) string {
+	if fileNameRE.MatchString(network) && !strings.Contains(network, "..") {
+		return network
+	}
+	return "network"
 }
 
 func orDefault(s, d string) string {

@@ -97,10 +97,12 @@ function el(tag, attrs, ...kids) {
 }
 const day = (t) => t ? new Date(t * 1000).toISOString().slice(0, 10) : "";
 const when = (t) => t ? new Date(t * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC" : "";
+// own: a name's entry, never something inherited ("constructor" is a valid name)
+const own = (m, k) => (m && Object.hasOwn(m, k)) ? m[k] : undefined;
 const sym = (tok) => ((D.tokens || {})[String(tok || "").replace(" item", "")] || {}).symbol || "";
 function nameLink(n) {
   if (!n) return el("span", { class: "muted" }, "(open)");
-  if (D.names && D.names[n]) return el("a", { class: "name", href: "#name=" + encodeURIComponent(n) }, n);
+  if (own(D.names, n)) return el("a", { class: "name", href: "#name=" + encodeURIComponent(n) }, n);
   return el("span", { class: "mono muted", title: "not a name: a split or a deal" }, n);
 }
 function lockAmount(l) {
@@ -163,7 +165,8 @@ const tabs = [
 ];
 
 function route() {
-  const h = decodeURIComponent(location.hash.slice(1));
+  let h = location.hash.slice(1);
+  try { h = decodeURIComponent(h); } catch (e) { /* a malformed hash: taken as it is */ }
   if (h.startsWith("name=")) return { tab: "name", name: h.slice(5) };
   return { tab: tabs.some((t) => t[0] === h) ? h : "overview" };
 }
@@ -211,7 +214,7 @@ function overview() {
 }
 
 function names() {
-  const rows = (D.order || []).map((n) => D.names[n]).filter(Boolean)
+  const rows = (D.order || []).map((n) => own(D.names, n)).filter(Boolean)
     .filter((n) => matches(n.name, n.kind, n.owner, n.card, (n.agents || []).join(" ")))
     .map((n) => el("tr", {}, el("td", {}, n.kind === "agent" ? el("span", { class: "muted" }, "↳ ") : "", nameLink(n.name)), el("td", {}, n.kind),
       el("td", {}, day(n.since)),
@@ -250,7 +253,7 @@ function mail() {
 }
 
 function profile(name) {
-  const n = (D.names || {})[name];
+  const n = own(D.names, name);
   if (!n) return el("div", { class: "card" }, `No name "${name}" in this scan.`);
   const me = (x) => x === name;
   const dl = el("dl", {},

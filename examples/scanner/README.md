@@ -14,7 +14,9 @@ From the repository's root:
 go run ./examples/scanner
 ```
 
-The first run reads the network from the block its contracts were deployed in, 10,000 blocks per request (`log_range` in `net.json`), and keeps what it read in your cache directory (`ternscan/`). Later runs read only the new blocks. An interrupted scan goes on where it stopped. A request that fails (public RPCs drop one now and then) is tried again a few times; an RPC that keeps failing is replaced by the next one in `net.json` (`rpcs`), which goes on from the last block read. `--rpc URL` uses that one only.
+The first run reads the network from the block its contracts were deployed in, 10,000 blocks per request (`log_range` in `net.json`), and keeps what it read in your cache directory (`ternscan/`). Later runs read only the new blocks. An interrupted scan goes on where it stopped. A request that fails (public RPCs drop one now and then) is tried again a few times. A rate limit (429, "rate limit", "compute units") is waited out, as long as `Retry-After` says when the RPC sends one, and never makes the range smaller; a range the RPC refuses as too wide is asked for in smaller pieces. An RPC that keeps failing is replaced by the next one in `net.json` (`rpcs`), which goes on from the last block read. `--rpc URL` uses that one only. Errors name an RPC by its `scheme://host` only: a provider's key in its path or query never reaches the terminal or the page.
+
+It stays 64 blocks behind the head (`--confirmations`), deeper than Base reorganises, so what it keeps doesn't change. A view call answered from a state that hasn't caught up with the logs (an RPC behind a load balancer) is an error, not a guess: that range is read again on the next run.
 
 ```text
 scanner [COMMAND] [flags]
@@ -30,7 +32,7 @@ scanner [COMMAND] [flags]
   serve         a web page with all of it, scanned again every --every
 ```
 
-Flags: `--net FILE` (default `$TERNCHAIN_NET`, then `~/tern/net.json`, then `networks/tern-base-sepolia-1/net.json`), `--rpc URL`, `--json`, `--offline` (only the cache), `--limit N` (rows, newest first; default 50, 0 for all), `--confirmations N` (stay N blocks behind the head; default 3), `--cache DIR`, and for `serve`: `--listen ADDR` (default `127.0.0.1:8080`) and `--every D` (default `1m`).
+Flags: `--net FILE` (default `$TERNCHAIN_NET`, then `~/tern/net.json`, then `networks/tern-base-sepolia-1/net.json`), `--rpc URL`, `--json`, `--offline` (only the cache), `--limit N` (rows, newest first; default 50, 0 for all), `--confirmations N` (stay N blocks behind the head; default 64), `--cache DIR`, and for `serve`: `--listen ADDR` (default `127.0.0.1:8080`) and `--every D` (default `1m`).
 
 `--json` prints the same thing for programs. With no command it prints everything scanned: names, payments, locks, swaps, claims, mail per day and the tokens seen. Amounts are given in whole units and, in the `*_raw` fields, as integers in the token's smallest unit.
 
@@ -42,9 +44,11 @@ go run ./examples/scanner serve
 
 Open http://127.0.0.1:8080/. One page, nothing loaded from elsewhere: an overview (counts, recent activity, mail per day), then names, deals, payments, swaps, claims and mail, each filterable. A name links to its page (`#name=alice`): its agents, card, deals, payments and claims. The server reads new blocks every `--every` and the page fetches them; `--offline` serves the cache as it is. If the chain can't be read, the page keeps showing the cache and says why.
 
-The page fetches `/state.json`: the same as `--json`, plus `order` (owners, each followed by its agents), `swap_rows` (both sides and the price) and `every_seconds`.
+The page fetches `/state.json`: the same as `--json` without the `ids` and `addrs` tables (id or key to name: the page doesn't need them), plus `order` (owners, each followed by its agents), `swap_rows` (both sides and the price) `every_seconds` and, when the last update failed, `error`.
 
-Everything on the page was written by someone on the network (names, cards, claims). The page puts it in as text, never as markup, and its Content-Security-Policy lets nothing load or run from elsewhere. It listens on 127.0.0.1 by default; put it behind a reverse proxy to share it.
+Everything on the page was written by someone on the network (names, cards, claims). The page puts it in as text, never as markup, and its Content-Security-Policy lets nothing load or run from elsewhere. It listens on 127.0.0.1 by default and answers only requests for a loopback name (`127.0.0.1`, `localhost`) or for the host `--listen` names, so a web page elsewhere can't read it through a name of its own pointed at 127.0.0.1 (DNS rebinding). To share it, put it behind a reverse proxy that sends a loopback `Host` (nginx's default), or run it with `--listen NAME:PORT` for the name people use. `--listen 0.0.0.0:8080` also answers requests by IP address. Whoever can reach it sees everything on it, a failed update's message included.
+
+In the terminal, text written on chain (cards, claim kinds and data, token symbols) is shown without control characters or bidirectional overrides, so it can't move the cursor, rewrite the screen or reorder what you read.
 
 ## What it reads, and what it can't tell
 
@@ -52,7 +56,7 @@ Everything on the page was written by someone on the network (names, cards, clai
 |---|---|
 | names, agents, agents' daily limits, revocations, cards | `Registry`: `OwnerRegistered`, `AgentGranted`, `AgentRevoked`, `CardSet`; `Bank`: `TokenLimitSet` |
 | payments | `Bank`: `Paid`, `TokenPaid` |
-| deals | `Bank`: `Locked` (its kind from the condition and, for `AttestationCondition`, the demand: escrow, bond, bounty; a lock held by `TernJobs` is an ERC-8183 job), `Claimed`, `Released`, `Refunded`, `GivenBack`; the token and item from `Bank.locks` and `Bank.itemOf` |
+| deals | `Bank`: `Locked` (its kind from the condition and, for `AttestationCondition`, the demand: escrow, bond, bounty; a lock held by `TernJobs` is an ERC-8183 job), `PayeeSet` (a lock opened with no payee: the claim names it), `Claimed`, `Released`, `Refunded`, `GivenBack`; the token and item from `Bank.locks` and `Bank.itemOf` |
 | swaps | `SwapCondition`: `Swapped`, with both sides' locks |
 | claims | `EAS`: `Attested` with tern's claim schema, read with `getAttestation`; `Revoked` |
 | mail | `Inbox`: `Posted`, `Committed` (envelopes and bytes) |

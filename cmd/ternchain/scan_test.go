@@ -32,6 +32,12 @@ func TestScanNetwork(t *testing.T) {
 	lockOut(t, func() error { return runLockDecide(carol, []string{fmt.Sprint(esc), "7000", "partly", "done"}) })
 	lockOut(t, func() error { return runLockSettle(bob, []string{fmt.Sprint(esc)}) })
 	pending := open("escrow", "bob", "carol", "0.5", "logo")
+	// A bounty: opened with no payee; carol's award names bob, his claim sets it (Bank.PayeeSet).
+	bounty := open("bounty", "carol", "0.5", "fix", "issue", "#3")
+	lockOut(t, func() error {
+		return runLockDecide(carol, []string{fmt.Sprint(bounty), "bob", "10000", "first", "fix"})
+	})
+	lockOut(t, func() error { return runLockSettle(bob, []string{fmt.Sprint(bounty)}) })
 
 	w.must(alice.attest("bob", "review", "on time", 0))
 	if _, err := ai.send(SendOpts{To: "alice", Intent: "inform", Text: "hello from your agent"}); err != nil {
@@ -75,6 +81,9 @@ func TestScanNetwork(t *testing.T) {
 	}
 	if l := lockByID(s, pending); l == nil || l.Status != "open" || l.Total != "0.5" {
 		t.Fatalf("the open escrow: %+v", l)
+	}
+	if l := lockByID(s, bounty); l == nil || l.Kind != "bounty" || l.Payee != "bob" || l.Decider != "carol" || l.Status != "paid" {
+		t.Fatalf("the bounty: %+v", l)
 	}
 	var reviewed bool
 	for _, c := range s.Claims {

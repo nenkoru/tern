@@ -14,8 +14,11 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -70,7 +73,7 @@ func ReadNet(path string) (Net, error) {
 }
 
 // cacheVersion: raise it when what a scan derives changes, so old caches are read again.
-const cacheVersion = 1
+const cacheVersion = 2 // 2: PayeeSet, printable token symbols
 
 // fingerprint changes when the network's contracts do (or cacheVersion), so a
 // cache made for another deployment is thrown away.
@@ -220,11 +223,26 @@ func (s *State) Save(path string) error {
 	if err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	// A temp file of its own: a served page and a cron run may save the same cache.
+	f, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, path)
+	tmp := f.Name()
+	_, err = f.Write(b)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Chmod(tmp, 0o644)
+	}
+	if err == nil {
+		err = os.Rename(tmp, path)
+	}
+	if err != nil {
+		os.Remove(tmp)
+	}
+	return err
 }
 
 // Options steer an update.
@@ -261,8 +279,8 @@ func (s *State) Update(ctx context.Context, b Backend, n Net, o Options) error {
 		to := min(from+step-1, head)
 		logs, err := sc.logs(ctx, from, to)
 		if err != nil {
-			if step > 100 && smaller(err) {
-				step /= 2 // some RPCs refuse wide ranges or many results
+			if next, ok := narrower(err, step); ok {
+				step = next // some RPCs refuse wide ranges or many results
 				continue
 			}
 			return fmt.Errorf("logs %d-%d: %w", from, to, err)
@@ -292,31 +310,44 @@ func (s *State) Update(ctx context.Context, b Backend, n Net, o Options) error {
 }
 
 // retrying: a public RPC drops a request now and then (a TLS handshake that
-// times out, a 502, a rate limit): each call is tried again a few times,
-// waiting longer each time. A refused range comes back at once, for Update
-// to ask for a smaller one.
+// times out, a 502): each call is tried again a few times, waiting longer
+// each time. A rate limit is waited out longer still (and Dial's transport
+// has already honoured any Retry-After). A refused range comes back at once,
+// for Update to ask for a smaller one; a call that reverts comes back at once
+// too (asking again gives the same answer).
 type retrying struct{ Backend }
 
-const tries = 4
+const (
+	tries     = 4
+	rateTries = 6
+)
 
-var backoff = time.Second // the first wait; it doubles (tests shorten it)
+var (
+	backoff     = time.Second     // the first wait; it doubles (tests shorten it)
+	rateBackoff = 2 * time.Second // the first wait after a rate limit; it doubles, up to maxWait
+	maxWait     = 30 * time.Second
+)
 
 func retry[T any](ctx context.Context, f func() (T, error)) (T, error) {
 	var v T
 	var err error
-	for i := range tries {
-		if v, err = f(); err == nil || ctx.Err() != nil || tooWide(err) {
+	for i := 0; ; i++ {
+		if v, err = f(); err == nil || ctx.Err() != nil || tooWide(err) || reverted(err) {
 			return v, err
 		}
-		if i < tries-1 {
-			select {
-			case <-ctx.Done():
-				return v, ctx.Err()
-			case <-time.After(backoff << i):
-			}
+		n, wait := tries, backoff<<i
+		if rateLimited(err) {
+			n, wait = rateTries, min(rateBackoff<<i, maxWait)
+		}
+		if i >= n-1 {
+			return v, err
+		}
+		select {
+		case <-ctx.Done():
+			return v, ctx.Err()
+		case <-time.After(wait):
 		}
 	}
-	return v, err
 }
 
 func (r retrying) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
@@ -335,22 +366,27 @@ func (r retrying) CallContract(ctx context.Context, msg ethereum.CallMsg, block 
 	return retry(ctx, func() ([]byte, error) { return r.Backend.CallContract(ctx, msg, block) })
 }
 
-// tooWide: the RPC refused the range or the number of results.
-func tooWide(err error) bool {
-	m := strings.ToLower(err.Error())
-	for _, w := range []string{"block range", "range is too", "range too", "too many", "exceed", "10000 results", "limit"} {
-		if strings.Contains(m, w) {
-			return true
+// minWindow: the narrowest range asked for before giving up.
+const minWindow = 10
+
+// narrower: the range to ask for after one failed, if a smaller one could
+// help: the RPC's own limit when it names one (counted both ends), else half.
+// A range refused as too wide, or one that timed out under its own weight;
+// never after a rate limit (a narrower window would only mean more requests).
+func narrower(err error, n uint64) (uint64, bool) {
+	if n <= minWindow || rateLimited(err) || reverted(err) {
+		return 0, false
+	}
+	s := err.Error()
+	if m := rangeLimitRE.FindStringSubmatch(s); m != nil {
+		if lim, _ := strconv.ParseUint(m[1], 10, 64); lim > 1 && lim-1 < n {
+			return max(lim-1, minWindow), true
 		}
 	}
-	return false
-}
-
-// smaller: after the retries, a range worth asking for in halves (refused
-// as too wide, or timing out under the load of a wide one).
-func smaller(err error) bool {
-	m := strings.ToLower(err.Error())
-	return tooWide(err) || strings.Contains(m, "timeout") || strings.Contains(m, "429")
+	if tooWide(err) || strings.Contains(strings.ToLower(s), "timeout") {
+		return max(n/2, minWindow), true
+	}
+	return 0, false
 }
 
 // ---- the scanner: one pass over a range of blocks
@@ -373,7 +409,7 @@ type scanner struct {
 // what is read: contract => its events
 var watched = map[string][]string{
 	"Registry":      {"OwnerRegistered", "ControllerChanged", "AgentGranted", "AgentRevoked", "CardSet"},
-	"Bank":          {"Paid", "TokenPaid", "Locked", "Claimed", "Refunded", "Released", "GivenBack", "TokenLimitSet"},
+	"Bank":          {"Paid", "TokenPaid", "Locked", "PayeeSet", "Claimed", "Refunded", "Released", "GivenBack", "TokenLimitSet"},
 	"SwapCondition": {"Swapped"},
 	"EAS":           {"Attested", "Revoked"},
 	"Inbox":         {"Posted", "Committed"},
@@ -534,6 +570,10 @@ func (sc *scanner) apply(ctx context.Context, l types.Log) error {
 			AmountRaw: m["amount"].(*big.Int).String()})
 	case "Bank.Locked":
 		return sc.locked(ctx, l, m, t)
+	case "Bank.PayeeSet": // a lock opened with no payee: the claim named one (a bounty's winner, a swap's buyer)
+		if k := s.lock(m["id"]); k != nil {
+			k.Payee = s.who(m["payee"])
+		}
 	case "Bank.Claimed", "Bank.Released":
 		if k := s.lock(m["id"]); k != nil {
 			k.PaidRaw = addRaw(k.PaidRaw, m["amount"].(*big.Int))
@@ -583,11 +623,21 @@ func (sc *scanner) locked(ctx context.Context, l types.Log, m map[string]any, t 
 	if err != nil {
 		return fmt.Errorf("lock %d: %w", k.ID, err)
 	}
+	// An RPC behind a load balancer may answer from a node that hasn't seen
+	// the lock yet (all zeros): an error, so the range is read again, rather
+	// than a lock in the wrong token kept for good.
+	if total, c := out[3].(*big.Int), out[7].(common.Address); total.Cmp(m["total"].(*big.Int)) != 0 || c != cond {
+		return fmt.Errorf("lock %d: the rpc answered from a state without it (behind the logs); try again", k.ID)
+	}
 	if k.Token, err = sc.token(ctx, out[9].(common.Address)); err != nil {
 		return err
 	}
-	if out, err := sc.call(ctx, "Bank", bank, "itemOf", id); err == nil && out[0].(*big.Int).Sign() > 0 {
-		k.Item = new(big.Int).Sub(out[0].(*big.Int), big.NewInt(1)).String()
+	item, err := sc.call(ctx, "Bank", bank, "itemOf", id)
+	if err != nil {
+		return fmt.Errorf("lock %d: itemOf: %w", k.ID, err)
+	}
+	if item[0].(*big.Int).Sign() > 0 {
+		k.Item = new(big.Int).Sub(item[0].(*big.Int), big.NewInt(1)).String()
 		k.Token += " item"
 	}
 	s.Locks = append(s.Locks, k)
@@ -678,6 +728,11 @@ func (sc *scanner) attested(ctx context.Context, l types.Log, uid common.Hash, t
 		Revocable      bool
 		Data           []byte
 	})
+	if common.Hash(a.Uid) != uid {
+		// the RPC answered from a state without it (an empty attestation): an
+		// error, so the range is read again, rather than a claim lost for good
+		return fmt.Errorf("claim %s: the rpc doesn't know it yet; try again", uid.Hex())
+	}
 	args := abi.Arguments{{Type: mustType("bytes32")}, {Type: mustType("string")}, {Type: mustType("bytes")}, {Type: mustType("int64")}}
 	v, err := args.Unpack(a.Data)
 	if err != nil {
@@ -730,7 +785,7 @@ func (sc *scanner) token(ctx context.Context, a common.Address) (string, error) 
 		tk = &Token{Symbol: st.Symbol, Decimals: st.Decimals}
 	} else {
 		if out, err := sc.erc20(ctx, a, "symbol"); err == nil {
-			tk.Symbol = out[0].(string)
+			tk.Symbol = clip(Printable(out[0].(string)), 24) // anyone's token: no terminal codes in its symbol
 		}
 		if out, err := sc.erc20(ctx, a, "decimals"); err == nil {
 			tk.Decimals = int(out[0].(uint8))
@@ -903,6 +958,21 @@ func isText(b []byte) bool {
 		}
 	}
 	return true
+}
+
+// Printable: s without control characters (terminal escapes, line breaks:
+// each becomes a space) or bidirectional overrides (which reorder what is
+// shown). Chain strings are anyone's: print them through this.
+func Printable(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r == 0x061c || r == 0x200e || r == 0x200f || (r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069):
+			return -1
+		case unicode.IsControl(r) || r == utf8.RuneError:
+			return ' '
+		}
+		return r
+	}, s)
 }
 
 func clip(s string, n int) string {
