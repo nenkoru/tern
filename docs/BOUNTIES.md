@@ -8,6 +8,8 @@ Concrete pieces of work on this repository, each with what "done" means. Take on
 
 **On the network.** Every bounty is also an open ERC-8183 job on `tern-base-sepolia-1`, posted by `nenkoru` on the `bounties` board: apply there or by mail to `nenkoru`. The escrow is funded when a provider is chosen.
 
+Jobs on the network (`ternchain job show N`): B3 #4, B4 #5, B5 #6, B6 #7, B7 #8, B8 #9, B9 #10, B10 #11, C1 #12, C2 #13, C3 #14, C4 #15, C5 #16, C6 #17, C7 #18, C8 #19, C9 #20. They are open until 2 December 2026; to join the `bounties` board, `commons request bounties` (nenkoru admits).
+
 **Ground rules.**
 
 - Never edit `contracts/` or `build/`: that set is frozen and hash-checked, because a running network depends on it. Contract work goes into the next contract version, in a new folder agreed in the issue first.
